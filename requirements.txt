@@ -1,0 +1,18 @@
+# Web3 and Blockchain
+web3>=6.0.0
+eth-account>=0.10.0
+
+# Data handling
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# Visualization
+matplotlib>=3.7.0
+plotly>=5.17.0
+
+# Configuration and environment
+python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# Utilities
+colorama>=0.4.6

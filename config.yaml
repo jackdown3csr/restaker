@@ -1,0 +1,18 @@
+network:
+  name: Galactica Mainnet
+  chain_id: 613419
+  rpc_url: https://galactica-mainnet.g.alchemy.com/public
+  ws_url: wss://galactica-mainnet.g.alchemy.com/public
+  explorer: https://explorer.galactica.com/
+  currency_symbol: GNET
+restaking:
+  min_reward_threshold: 0.1
+gas:
+  max_gas_price_gwei: 50
+  gas_limit_multiplier: 1.2
+logging:
+  level: INFO
+  log_to_file: true
+  log_file: logs/restake.log
+export:
+  csv_file: data/history.csv
