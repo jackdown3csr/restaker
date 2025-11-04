@@ -68,7 +68,7 @@ Amount to restake: 1.234567 GNET
 ## Automating with Windows Task Scheduler
 1. Open Task Scheduler (`Win + R`, enter `taskschd.msc`).
 2. Create Basic Task → name it "Galactica Auto-Restake".
-3. Choose a trigger that matches how often you want to compound (Daily, Hourly, etc.).
+3. Choose a trigger (Daily, Weekly, Monthly, or custom interval via Advanced options).
 4. Action → Start a program:
    - Program/script: `C:\Python313\python.exe`
    - Arguments: `C:\path\to\restaker\restake.py`
