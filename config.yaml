@@ -5,6 +5,7 @@ network:
   ws_url: wss://galactica-mainnet.g.alchemy.com/public
   explorer: https://explorer.galactica.com/
   currency_symbol: GNET
+  staking_contract: 826030585723602961507836977318968404690514027560
 restaking:
   min_reward_threshold: 0.1
 gas:

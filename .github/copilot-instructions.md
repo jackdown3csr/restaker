@@ -4,23 +4,22 @@ Python project for automatically claiming and re-staking rewards from Galactica 
 
 ## Project Type
 - Python script with web3.py
-- Excel/CSV history tracking
-- Data visualization with matplotlib
+- CSV history tracking (lightweight, portable)
+- Console-only dashboard
 - Secure local execution with private key management
 
 ## Key Requirements
 - Web3 interaction with Galactica mainnet (Chain ID: 613419)
-- Claim rewards using `addRewardToStake()` function from Staking contract
-- Track history in Excel/CSV format
-- Generate charts for staking performance
+- Two-step restake workflow: `createStake(0)` triggers `updateReward`, then `addRewardToStake()` moves rewards to stake
+- Track history in CSV format
 - Windows Task Scheduler automation support
 - Maximum security: private keys stored locally only
 
 ## Tech Stack
 - Python 3.10+
 - web3.py for blockchain interaction
-- openpyxl/pandas for Excel export
-- matplotlib/plotly for charts
+- pandas for CSV export
+- colorama for colored terminal output
 - python-dotenv for environment variables
 
 ## Security Notes

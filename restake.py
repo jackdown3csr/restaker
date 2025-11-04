@@ -7,7 +7,7 @@ import os
 import sys
 import logging
 import yaml
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
@@ -15,7 +15,7 @@ from web3 import Web3
 from web3.exceptions import ContractLogicError
 from eth_account import Account
 import pandas as pd
-from colorama import Fore, Style, init
+from colorama import Fore, init
 
 # Initialize colorama for Windows
 init(autoreset=True)
@@ -35,7 +35,11 @@ class GalacticaRestaker:
         self.w3 = self._setup_web3()
         self.account = self._setup_account()
         self.staking_contract = self._setup_staking_contract()
-        self.csv_file = self.config['export']['csv_file']
+        # Default to data/history.csv if the config entry is missing
+        self.csv_file = (
+            self.config.get('export', {}).get('csv_file')
+            or 'data/history.csv'
+        )
         
         if self.dry_run:
             self.logger.warning(f"{Fore.YELLOW}⚠ DRY RUN MODE - No transactions will be sent!")
@@ -125,10 +129,13 @@ class GalacticaRestaker:
     
     def _setup_staking_contract(self):
         """Setup staking contract instance"""
-        contract_address = os.getenv('STAKING_CONTRACT')
+        contract_address = (
+            os.getenv('STAKING_CONTRACT')
+            or self.config.get('network', {}).get('staking_contract')
+        )
         
         if not contract_address:
-            self.logger.error(f"{Fore.RED}✗ STAKING_CONTRACT not found in .env file")
+            self.logger.error(f"{Fore.RED}✗ Staking contract address not configured")
             sys.exit(1)
         
         # Minimal ABI for the functions we need
@@ -237,8 +244,20 @@ class GalacticaRestaker:
             return None
     
     def execute_restake(self) -> Optional[Dict[str, Any]]:
-        """Execute the restake transaction (update reward → add to stake)"""
+        """
+        Execute the two-step restake workflow:
+        1. Call createStake(value=0) to trigger updateReward modifier
+        2. Call addRewardToStake() to move rewards into stake
+        
+        The Galactica staking contract requires this two-transaction approach because
+        addRewardToStake reads from the rewards mapping, which is only populated when
+        updateReward runs. createStake(0) triggers updateReward without adding new stake.
+        
+        Returns:
+            Dictionary with transaction details if successful, None if skipped/failed
+        """
         try:
+            # Check if we have enough rewards to make restaking worthwhile
             pending_rewards = self.get_pending_rewards()
             min_threshold = self.config['restaking']['min_reward_threshold']
 
@@ -251,6 +270,7 @@ class GalacticaRestaker:
 
             self.logger.info(f"{Fore.CYAN}→ Pending rewards: {pending_rewards:.6f} GNET")
 
+            # Verify gas price is within acceptable limits
             gas_price = self.get_gas_price()
             if gas_price is None:
                 self.logger.warning(f"{Fore.YELLOW}⚠ Aborting due to high gas price")
@@ -259,7 +279,8 @@ class GalacticaRestaker:
             stake_before = self.get_current_stake()
             nonce = self.w3.eth.get_transaction_count(self.account.address)
 
-            # --- Step 1: createStake(value=0) to trigger updateReward ---
+            # --- Step 1: createStake(value=0) triggers updateReward modifier ---
+            # This populates the rewards mapping with current pending rewards
             try:
                 gas_estimate_step1 = self.staking_contract.functions.createStake().estimate_gas({
                     'from': self.account.address,
@@ -272,7 +293,8 @@ class GalacticaRestaker:
                 self.logger.error(f"{Fore.RED}✗ Gas estimation for createStake failed: {e}")
                 return None
 
-            # --- Step 2: addRewardToStake (after rewards mapping is populated) ---
+            # --- Step 2: addRewardToStake moves rewards into stake ---
+            # This must happen after Step 1 completes on-chain
             try:
                 gas_estimate_step2 = self.staking_contract.functions.addRewardToStake(
                     self.account.address
@@ -281,6 +303,7 @@ class GalacticaRestaker:
                     'nonce': nonce + 1,
                     'gasPrice': gas_price
                 })
+                # Add buffer to gas estimate for safety (multiplier + fixed amount)
                 gas_limit_step2 = int(gas_estimate_step2 * self.config['gas']['gas_limit_multiplier']) + 20000
             except Exception as e:
                 self.logger.error(f"{Fore.RED}✗ Gas estimation for addRewardToStake failed: {e}")
@@ -291,6 +314,7 @@ class GalacticaRestaker:
                 f"Step2: {gas_estimate_step2} (limit {gas_limit_step2})"
             )
 
+            # --- DRY RUN MODE: Preview transactions without broadcasting ---
             if self.dry_run:
                 gas_cost_step1 = gas_limit_step1 * gas_price
                 gas_cost_step2 = gas_limit_step2 * gas_price
@@ -322,11 +346,12 @@ class GalacticaRestaker:
                     'status': 'Dry Run'
                 }
 
-            # --- REAL MODE ---
+            # --- REAL MODE: Build and broadcast transactions ---
             total_gas_used = 0
             total_gas_cost = 0.0
 
-            # Step 1 transaction
+            # Build Step 1 transaction: createStake(value=0)
+            # This triggers updateReward() to populate the rewards mapping
             tx1 = self.staking_contract.functions.createStake().build_transaction({
                 'from': self.account.address,
                 'nonce': nonce,
@@ -336,9 +361,11 @@ class GalacticaRestaker:
                 'chainId': self.config['network']['chain_id']
             })
 
+            # Sign transaction with private key (happens locally, never leaves machine)
             signed_tx1 = self.w3.eth.account.sign_transaction(tx1, private_key=self.account.key)
             raw_tx1 = signed_tx1.raw_transaction if hasattr(signed_tx1, 'raw_transaction') else signed_tx1.rawTransaction
 
+            # Broadcast Step 1 and wait for confirmation
             self.logger.info(f"{Fore.CYAN}→ STEP 1: createStake(value=0)")
             tx1_hash = self.w3.eth.send_raw_transaction(raw_tx1)
             tx1_hash_hex = tx1_hash.hex()
@@ -365,7 +392,8 @@ class GalacticaRestaker:
 
             self.logger.info(f"  ✓ Step 1 confirmed (gas used: {gas_used_step1:,})")
 
-            # Query rewards mapping after updateReward triggered by step 1
+            # Verify rewards are now available in the rewards mapping
+            # (updateReward populated this during Step 1 execution)
             rewards_after_step1 = self.staking_contract.functions.rewards(self.account.address).call()
             rewards_after_step1_gnet = float(self.w3.from_wei(rewards_after_step1, 'ether'))
 
@@ -384,7 +412,8 @@ class GalacticaRestaker:
 
             self.logger.info(f"{Fore.CYAN}→ Rewards ready to restake: {rewards_after_step1_gnet:.6f} GNET")
 
-            # Step 2 transaction
+            # Build Step 2 transaction: addRewardToStake()
+            # This moves rewards from the rewards mapping into the stakes mapping
             tx2 = self.staking_contract.functions.addRewardToStake(self.account.address).build_transaction({
                 'from': self.account.address,
                 'nonce': nonce + 1,
@@ -448,13 +477,14 @@ class GalacticaRestaker:
             return None
     
     def save_to_history(self, record: Dict[str, Any]):
-        """Save restake record to Excel and CSV files"""
+        """Save restake record to CSV file for historical tracking"""
         if not record:
             return
         
         try:
-            # Create data directory if it doesn't exist
-            Path("data").mkdir(exist_ok=True)
+            csv_path = Path(self.csv_file)
+            if csv_path.parent and not csv_path.parent.exists():
+                csv_path.parent.mkdir(parents=True, exist_ok=True)
 
             df_record = pd.DataFrame([{
                 'Timestamp': record['timestamp'].strftime('%Y-%m-%d %H:%M:%S'),
@@ -467,18 +497,18 @@ class GalacticaRestaker:
                 'Status': record['status']
             }])
 
-            if Path(self.csv_file).exists():
-                df_record.to_csv(self.csv_file, mode='a', header=False, index=False)
+            if csv_path.exists():
+                df_record.to_csv(csv_path, mode='a', header=False, index=False)
             else:
-                df_record.to_csv(self.csv_file, index=False)
+                df_record.to_csv(csv_path, index=False)
 
-            self.logger.info(f"{Fore.GREEN}✓ History saved to {self.csv_file}")
+            self.logger.info(f"{Fore.GREEN}✓ History saved to {csv_path}")
 
         except Exception as e:
             self.logger.error(f"{Fore.RED}✗ Error saving history: {e}")
     
 
-    def run(self, force: bool = False):
+    def run(self):
         """Main execution method"""
         self.logger.info(f"\n{Fore.CYAN}{'='*60}")
         self.logger.info(f"{Fore.CYAN}Galactica Auto-Restaking Bot - Starting")
@@ -517,6 +547,7 @@ def main():
     
     try:
         restaker = GalacticaRestaker(dry_run=args.dry_run)
+        restaker.run()
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}⚠ Interrupted by user")
         sys.exit(0)

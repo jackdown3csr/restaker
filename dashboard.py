@@ -62,11 +62,11 @@ class RestakingDashboard:
         total_growth = latest_stake - initial_stake
         net_gain = total_restaked - total_gas_cost
 
-        print(f"{Fore.GREEN}✓ Status: Running (Automated)")
+        print(f"{Fore.GREEN}✓ Bot Status: Active")
         print(f"{Fore.WHITE}  Successful restakes: {len(success_df)}")
-        print(f"  Current stake:  {latest_stake:,.2f} GNET")
-        print(f"  Compounded:     {total_growth:,.2f} GNET (+{(total_growth/initial_stake*100):.2f}%)")
-        print(f"  Net rewards:    {net_gain:,.6f} GNET (after gas)")
+        print(f"  Current stake:       {latest_stake:,.2f} GNET")
+        print(f"  Total compounded:    {total_growth:,.2f} GNET (+{(total_growth/initial_stake*100):.2f}%)")
+        print(f"  Net profit:          {net_gain:,.6f} GNET (after gas)")
         print(f"\n{Fore.CYAN}{'=' * 70}\n")
 
     def print_recent_runs(self, limit: int = 5) -> None:

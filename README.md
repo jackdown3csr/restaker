@@ -5,7 +5,9 @@ Local Python utility that claims pending rewards from the Galactica staking cont
 ## Requirements
 - Windows 10/11 for Task Scheduler automation (manual runs work on any OS)
 - Python 3.10 or newer (project tested with Python 3.13)
-- Galactica mainnet RPC endpoint and staking contract address
+- Your Galactica wallet private key
+
+> **Note:** The staking contract (0x90B07E15Cfb173726de904ca548dd96f73c12428) and RPC endpoint are pre-configured in `.env.example`.
 
 ## Quick Start
 1. **Clone and install**
@@ -19,28 +21,48 @@ Local Python utility that claims pending rewards from the Galactica staking cont
    ```env
    PRIVATE_KEY=0xYOUR_PRIVATE_KEY
    WALLET_ADDRESS=0xYOUR_ADDRESS
-   RPC_URL=https://galactica-mainnet.g.alchemy.com/public
-   STAKING_CONTRACT=0xSTAKING_CONTRACT_ADDRESS
    ```
+      (The RPC and staking contract are already set in `.env.example`.)
+      Running `python setup.py` also lets you tune the minimum reward threshold, gas price cap, and CSV history location while writing everything to `config.yaml` and `.env.local`.
 
 3. **Check pending rewards** (optional sanity check):
    ```cmd
    python test_balance.py
    ```
 
-4. **Dry run the bot** – see the planned transactions without broadcasting them:
+4. **Dry run the bot** – preview transactions without broadcasting them:
    ```cmd
    python restake.py --dry-run
    ```
 
-5. **Run for real** – call without the flag once you are ready:
+5. **Run for real** – execute actual restaking once you're ready:
    ```cmd
    python restake.py
    ```
 
-Each successful run writes a line to `data/history.csv` and the console dashboard can summarize the totals:
+Each successful run appends to `data/history.csv`. View your performance summary anytime:
 ```cmd
 python dashboard.py
+```
+
+## Command-Line Flags
+
+**`python restake.py`**
+- **No flags**: Normal operation - checks pending rewards and restakes if above threshold
+- **`--dry-run`**: Preview mode - simulates the entire workflow and shows gas estimates without broadcasting transactions. Useful for testing configuration before committing real funds.
+
+Example dry-run output:
+```
+DRY RUN - Transaction Preview:
+STEP 1 → createStake(value=0)
+  Gas limit: 85,234
+  Estimated gas cost: 0.001234 GNET
+STEP 2 → addRewardToStake()
+  Gas limit: 92,156
+  Estimated gas cost: 0.001456 GNET
+Total estimated gas cost: 0.002690 GNET
+Amount to restake: 1.234567 GNET
+⚠ DRY RUN - Transactions NOT sent!
 ```
 
 ## Automating with Windows Task Scheduler
@@ -62,7 +84,6 @@ python dashboard.py
 
 ## Troubleshooting
 - **Missing packages:** re-run `pip install -r requirements.txt`.
-- **Connection issues:** verify `RPC_URL` and your internet connection.
 - **Gas cap reached:** the bot skips transactions if current gas price exceeds `gas.max_gas_price_gwei` in `config.yaml` (default 50 Gwei).
 
 ## License

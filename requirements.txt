@@ -4,11 +4,6 @@ eth-account>=0.10.0
 
 # Data handling
 pandas>=2.0.0
-openpyxl>=3.1.0
-
-# Visualization
-matplotlib>=3.7.0
-plotly>=5.17.0
 
 # Configuration and environment
 python-dotenv>=1.0.0
