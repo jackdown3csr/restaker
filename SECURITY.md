@@ -41,7 +41,7 @@ The CLI version stores your key in `.env.local`:
 
 ---
 
-## What We DON'T Do
+## What I DON'T Do
 
 ❌ Send your private key over the network  
 ❌ Store keys in plain text (GUI version)  
@@ -83,8 +83,8 @@ self.web3.eth.send_raw_transaction(signed.raw_transaction)
 
 ## Best Practices
 
-1. **Use a dedicated wallet** for staking - don't use your main wallet
-2. **Keep minimal funds** - only what you need for gas + staking
+1. **Use your Cypherbook wallet** - this must be the same wallet you use in [Galactica Cypherbook](https://app.galactica.com) where your stake lives
+2. **Keep minimal extra funds** - only what you need for gas fees
 3. **Review transactions** - check the logs in `logs/restake.log`
 4. **Update regularly** - pull latest version for security fixes
 
