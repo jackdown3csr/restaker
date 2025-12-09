@@ -93,7 +93,8 @@ class RestakeApp:
                 },
                 'logging': {
                     'level': 'INFO',
-                    'file': str(log_dir / 'restake_testnet.log')
+                    'log_to_file': True,
+                    'log_file': str(log_dir / 'restake_testnet.log')
                 },
                 'export': {
                     'csv_file': str(app_dir / 'data' / 'history_testnet.csv')
@@ -116,7 +117,8 @@ class RestakeApp:
                 },
                 'logging': {
                     'level': 'INFO',
-                    'file': str(log_dir / 'restake.log')
+                    'log_to_file': True,
+                    'log_file': str(log_dir / 'restake.log')
                 },
                 'export': {
                     'csv_file': str(app_dir / 'data' / 'history.csv')
