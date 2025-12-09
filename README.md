@@ -103,16 +103,10 @@ python gui/main.py
 
 After setup, the app minimizes to your system tray (near the clock):
 
-| Icon | Status |
-|:--:|--|
-| 🟢 | Running normally |
-| 🔴 | Last operation failed |
+- **Galaxy spiral icon** — App is running
+- **Right-click** for menu: Start/Pause, Run Now, Settings, Exit
 
-**Right-click menu:**
-- ▶️ Start / ⏸️ Pause
-- 🔄 Run Now
-- ⚙️ Settings
-- ❌ Exit
+The icon shows a teal galaxy spiral. Status changes are shown via Windows notifications.
 
 ### Build Your Own EXE
 
