@@ -1,0 +1,20 @@
+network:
+  name: Galactica Cassiopeia Testnet
+  chain_id: 843843
+  rpc_url: https://galactica-cassiopeia.g.alchemy.com/public
+  ws_url: wss://galactica-cassiopeia.g.alchemy.com/public
+  explorer: https://galactica-cassiopeia.explorer.alchemy.com/
+  currency_symbol: GNET
+  staking_contract: 0xC0F305b12a73c6c8c6fd0EE0459c93f5C73e1AB3
+restaking:
+  min_reward_threshold: 0.05
+  # Testnet tokens have no real cost; feel free to lower this if you want more frequent runs.
+gas:
+  max_gas_price_gwei: 50
+  gas_limit_multiplier: 1.2
+logging:
+  level: INFO
+  log_to_file: true
+  log_file: logs/restake_testnet.log
+export:
+  csv_file: data/history_testnet.csv

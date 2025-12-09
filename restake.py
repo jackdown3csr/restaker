@@ -9,7 +9,7 @@ import logging
 import yaml
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Iterable
 from dotenv import load_dotenv
 from web3 import Web3
 from web3.exceptions import ContractLogicError
@@ -20,15 +20,24 @@ from colorama import Fore, init
 # Initialize colorama for Windows
 init(autoreset=True)
 
-# Load environment variables (try .env.local first, then .env)
-load_dotenv('.env.local')
-load_dotenv()
-
 class GalacticaRestaker:
     """Main class for auto-restaking Galactica Network rewards"""
     
-    def __init__(self, config_path: str = "config.yaml", dry_run: bool = False):
-        """Initialize the restaker with configuration"""
+    def __init__(
+        self,
+        config_path: str = "config.yaml",
+        dry_run: bool = False,
+        env_files: Optional[Iterable[str]] = None,
+    ):
+        """Initialize the restaker with configuration.
+
+        Args:
+            config_path: Path to YAML config file.
+            dry_run: When True, only simulate transactions.
+            env_files: Optional iterable of dotenv files to load (first wins).
+        """
+        self.env_files = list(env_files) if env_files else ['.env.local', '.env']
+        self._load_environment()
         self.config = self._load_config(config_path)
         self.dry_run = dry_run
         self.setup_logging()
@@ -48,6 +57,12 @@ class GalacticaRestaker:
         self.logger.info(f"Wallet: {self.account.address}")
         self.logger.info(f"Network: {self.config['network']['name']} (Chain ID: {self.config['network']['chain_id']})")
     
+    def _load_environment(self) -> None:
+        """Load environment variables from the configured dotenv files."""
+        for env_path in self.env_files:
+            if env_path:
+                load_dotenv(env_path, override=False)
+
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Load configuration from YAML file"""
         try:
@@ -543,10 +558,20 @@ def main():
     parser = argparse.ArgumentParser(description='Galactica Auto-Restaking Bot')
     parser.add_argument('--dry-run', action='store_true', 
                        help='Simulate restake without sending transaction')
+    parser.add_argument('--config', default='config.yaml',
+                        help='Path to configuration YAML (default: config.yaml)')
+    parser.add_argument('--env-file', dest='env_files', action='append',
+                        help='Additional dotenv file(s) to load (can be provided multiple times). '
+                             'Defaults to .env.local then .env.')
     args = parser.parse_args()
     
     try:
-        restaker = GalacticaRestaker(dry_run=args.dry_run)
+        env_files = args.env_files if args.env_files else None
+        restaker = GalacticaRestaker(
+            config_path=args.config,
+            dry_run=args.dry_run,
+            env_files=env_files,
+        )
         restaker.run()
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}⚠ Interrupted by user")

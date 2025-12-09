@@ -1,6 +1,7 @@
 # Environment and secrets
 .env
 .env.local
+.env.testnet
 *.key
 
 # Python
@@ -28,9 +29,9 @@ wheels/
 .installed.cfg
 *.egg
 
-# Data and logs (optional - comment out if you want to track history)
-# data/
-# logs/
+# Runtime data and logs
+logs/*.log
+data/history*.csv
 
 # IDE
 .vscode/

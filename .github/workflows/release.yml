@@ -1,0 +1,60 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      
+      - name: Build EXE
+        run: |
+          pyinstaller gui/build.spec
+      
+      - name: Generate checksums
+        run: |
+          cd dist
+          (Get-FileHash GalacticaRestaker.exe -Algorithm SHA256).Hash + "  GalacticaRestaker.exe" | Out-File -Encoding ASCII SHA256SUMS.txt
+        shell: pwsh
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/GalacticaRestaker.exe
+            dist/SHA256SUMS.txt
+          body: |
+            ## 📥 Download
+            
+            **Windows Users:** Download `GalacticaRestaker.exe` - no installation required!
+            
+            ### Verify Download (optional)
+            ```powershell
+            (Get-FileHash GalacticaRestaker.exe -Algorithm SHA256).Hash
+            ```
+            Compare with the hash in `SHA256SUMS.txt`
+            
+            ### What's New
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false
