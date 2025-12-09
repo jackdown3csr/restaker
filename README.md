@@ -106,12 +106,11 @@ After setup, the app minimizes to your system tray (near the clock):
 | Icon | Status |
 |:--:|--|
 | 🟢 | Running normally |
-| 🟡 | Paused |
 | 🔴 | Last operation failed |
 
 **Right-click menu:**
 - ▶️ Start / ⏸️ Pause
-- ⚡ Run Now
+- 🔄 Run Now
 - ⚙️ Settings
 - ❌ Exit
 
