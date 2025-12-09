@@ -81,15 +81,15 @@ class RestakeApp:
                 'network': {
                     'name': 'Cassiopeia Testnet',
                     'rpc_url': 'https://galactica-cassiopeia.g.alchemy.com/public',
-                    'chain_id': 843843
+                    'chain_id': 843843,
+                    'staking_contract': '0xC0F305b12a73c6c8c6fd0EE0459c93f5C73e1AB3'
                 },
-                'contract': {
-                    'address': '0xC0F305b12a73c6c8c6fd0EE0459c93f5C73e1AB3'
+                'restaking': {
+                    'min_reward_threshold': self.config.min_threshold
                 },
-                'restake': {
-                    'min_reward_threshold': self.config.min_threshold,
-                    'gas_limit': 500000,
-                    'max_gas_price_gwei': self.config.max_gas_gwei
+                'gas': {
+                    'max_gas_price_gwei': self.config.max_gas_gwei,
+                    'gas_limit_multiplier': 1.2
                 },
                 'logging': {
                     'level': 'INFO',
@@ -105,15 +105,15 @@ class RestakeApp:
                 'network': {
                     'name': 'Galactica Mainnet',
                     'rpc_url': 'https://galactica-mainnet.g.alchemy.com/public',
-                    'chain_id': 613419
+                    'chain_id': 613419,
+                    'staking_contract': '0xE2392D3C7fAebeC42940EdB0ea8997874e5B2b3D'
                 },
-                'contract': {
-                    'address': '0xE2392D3C7fAebeC42940EdB0ea8997874e5B2b3D'
+                'restaking': {
+                    'min_reward_threshold': self.config.min_threshold
                 },
-                'restake': {
-                    'min_reward_threshold': self.config.min_threshold,
-                    'gas_limit': 500000,
-                    'max_gas_price_gwei': self.config.max_gas_gwei
+                'gas': {
+                    'max_gas_price_gwei': self.config.max_gas_gwei,
+                    'gas_limit_multiplier': 1.2
                 },
                 'logging': {
                     'level': 'INFO',
