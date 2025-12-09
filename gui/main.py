@@ -79,6 +79,7 @@ class RestakeApp:
             config_file = app_dir / 'config.testnet.yaml'
             default_config = {
                 'network': {
+                    'name': 'Cassiopeia Testnet',
                     'rpc_url': 'https://galactica-cassiopeia.g.alchemy.com/public',
                     'chain_id': 843843
                 },
@@ -90,14 +91,18 @@ class RestakeApp:
                     'gas_limit': 500000,
                     'max_gas_price_gwei': self.config.max_gas_gwei
                 },
-                'paths': {
-                    'history_csv': str(app_dir / 'data' / 'history_testnet.csv'),
-                    'log_file': str(log_dir / 'restake_testnet.log')
+                'logging': {
+                    'level': 'INFO',
+                    'file': str(log_dir / 'restake_testnet.log')
+                },
+                'export': {
+                    'csv_file': str(app_dir / 'data' / 'history_testnet.csv')
                 }
             }
         else:
             default_config = {
                 'network': {
+                    'name': 'Galactica Mainnet',
                     'rpc_url': 'https://galactica-mainnet.g.alchemy.com/public',
                     'chain_id': 613419
                 },
@@ -109,9 +114,12 @@ class RestakeApp:
                     'gas_limit': 500000,
                     'max_gas_price_gwei': self.config.max_gas_gwei
                 },
-                'paths': {
-                    'history_csv': str(app_dir / 'data' / 'history.csv'),
-                    'log_file': str(log_dir / 'restake.log')
+                'logging': {
+                    'level': 'INFO',
+                    'file': str(log_dir / 'restake.log')
+                },
+                'export': {
+                    'csv_file': str(app_dir / 'data' / 'history.csv')
                 }
             }
         

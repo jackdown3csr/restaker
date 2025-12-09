@@ -5,14 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.1] - 2025-12-09
-
-### Fixed
-- Setup dialog window height increased to prevent button label clipping
-- Improved tray icon design (galaxy spiral instead of diamond)
-- Removed emoji from dialog title for cleaner look
-- Added testnet support to GUI feature list in README
-
 ## [2.0.0] - 2025-12-09
 
 ### Added
@@ -28,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cannot be decrypted by other users
 - **SECURITY.md** - Comprehensive security documentation
 - **PyInstaller build spec** - Build standalone .exe without Python
+- **Testnet support** in GUI (network selector)
+
+### Fixed
+- Default config now includes all required sections (logging, network name)
+- Setup dialog window height prevents button label clipping
+- Improved tray icon design (galaxy spiral)
 
 ### Changed
 - Restructured project with `gui/` module
