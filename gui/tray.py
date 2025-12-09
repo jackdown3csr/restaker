@@ -22,28 +22,55 @@ logger = logging.getLogger(__name__)
 
 
 def create_icon_image(color: str = "#00D4AA", size: int = 64) -> Image.Image:
-    """Create a simple tray icon image."""
+    """
+    Create a Galactica-style spiral/galaxy tray icon.
+    
+    The icon features a stylized spiral galaxy shape with the brand color,
+    representing the Galactica network.
+    """
     image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     
-    # Draw a filled circle with the brand color
-    margin = size // 8
+    center = size // 2
+    
+    # Draw outer glow circle
+    margin = size // 10
     draw.ellipse(
         [margin, margin, size - margin, size - margin],
-        fill=color,
-        outline=color
+        fill=color
     )
     
-    # Draw a "G" or simple indicator
-    # For simplicity, just a diamond shape in center
-    center = size // 2
-    diamond_size = size // 4
-    draw.polygon([
-        (center, center - diamond_size),
-        (center + diamond_size, center),
-        (center, center + diamond_size),
-        (center - diamond_size, center),
-    ], fill="white")
+    # Draw inner dark circle for contrast
+    inner_margin = size // 5
+    draw.ellipse(
+        [inner_margin, inner_margin, size - inner_margin, size - inner_margin],
+        fill="#1a1a2e"
+    )
+    
+    # Draw spiral arms (simplified as curved lines)
+    import math
+    for arm in range(3):
+        angle_offset = arm * (2 * math.pi / 3)
+        points = []
+        for i in range(20):
+            t = i / 19.0
+            angle = angle_offset + t * 2.5
+            radius = (size // 6) + t * (size // 4)
+            x = center + radius * math.cos(angle)
+            y = center + radius * math.sin(angle)
+            points.append((x, y))
+        
+        # Draw spiral arm as thick line segments
+        for i in range(len(points) - 1):
+            draw.line([points[i], points[i+1]], fill=color, width=max(2, size // 20))
+    
+    # Draw bright center
+    center_size = size // 8
+    draw.ellipse(
+        [center - center_size, center - center_size, 
+         center + center_size, center + center_size],
+        fill="white"
+    )
     
     return image
 

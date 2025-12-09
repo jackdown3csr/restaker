@@ -50,8 +50,18 @@ class SetupDialog:
         """Show the setup dialog. Returns True if setup completed."""
         self.root = tk.Tk()
         self.root.title("Galactica Restaker - Setup")
-        self.root.geometry("450x400")
+        self.root.geometry("450x480")
         self.root.resizable(False, False)
+        
+        # Set window icon
+        try:
+            from .tray import create_icon_image
+            from PIL import ImageTk
+            icon_image = create_icon_image(size=32)
+            self._icon_photo = ImageTk.PhotoImage(icon_image)
+            self.root.iconphoto(True, self._icon_photo)
+        except Exception:
+            pass  # Icon is optional
         
         # Center window
         self.root.eval('tk::PlaceWindow . center')
@@ -72,7 +82,7 @@ class SetupDialog:
         # Title
         title_label = ttk.Label(
             main_frame,
-            text="🔷 Galactica Auto-Restaker",
+            text="Galactica Auto-Restaker",
             font=('Segoe UI', 14, 'bold')
         )
         title_label.pack(pady=(0, 20))
@@ -162,22 +172,22 @@ class SetupDialog:
 
         # Buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
+        button_frame.pack(fill=tk.X, pady=(15, 5))
 
         start_btn = ttk.Button(
             button_frame,
-            text="Start Restaking",
+            text="  Start Restaking  ",
             command=self._on_start,
             style='Accent.TButton'
         )
-        start_btn.pack(side=tk.RIGHT, padx=(10, 0))
+        start_btn.pack(side=tk.RIGHT, padx=(10, 0), ipady=4)
 
         cancel_btn = ttk.Button(
             button_frame,
-            text="Cancel",
+            text="  Cancel  ",
             command=self._on_cancel
         )
-        cancel_btn.pack(side=tk.RIGHT)
+        cancel_btn.pack(side=tk.RIGHT, ipady=4)
 
         # Warning label
         warning = ttk.Label(

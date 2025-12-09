@@ -52,6 +52,7 @@ Your Stake: 1000 GNET  →  Pending Reward: 5 GNET  →  Auto-Restaked  →  New
 ✅ Built-in scheduler  
 ✅ Desktop notifications  
 ✅ Encrypted key storage  
+✅ Testnet support  
 
 **Best for:** Set-and-forget users
 
