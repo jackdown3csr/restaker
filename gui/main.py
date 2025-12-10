@@ -106,7 +106,7 @@ class RestakeApp:
                     'name': 'Galactica Mainnet',
                     'rpc_url': 'https://galactica-mainnet.g.alchemy.com/public',
                     'chain_id': 613419,
-                    'staking_contract': '0xE2392D3C7fAebeC42940EdB0ea8997874e5B2b3D'
+                    'staking_contract': 826030585723602961507836977318968404690514027560
                 },
                 'restaking': {
                     'min_reward_threshold': self.config.min_threshold
