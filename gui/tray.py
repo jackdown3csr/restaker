@@ -108,33 +108,12 @@ class TrayApp:
 
     def _create_menu(self) -> pystray.Menu:
         """Create context menu for tray icon."""
-        status = self.get_status()
-        is_running = status.get('running', False)
-        next_run = status.get('next_run')
-        last_result = status.get('last_result')
-
-        # Status text
-        if is_running and next_run:
-            next_str = next_run.strftime('%H:%M') if isinstance(next_run, datetime) else str(next_run)
-            status_text = f"Next run: {next_str}"
-        elif is_running:
-            status_text = "Running..."
-        else:
-            status_text = "Stopped"
-
-        # Last result text
-        if last_result:
-            amount = last_result.get('amount_restaked', 0)
-            result_text = f"Last: +{amount:.4f} GNET"
-        else:
-            result_text = "No runs yet"
-
         return pystray.Menu(
-            Item(status_text, None, enabled=False),
-            Item(result_text, None, enabled=False),
+            Item(lambda text: self._get_status_text(), None, enabled=False),
+            Item(lambda text: self._get_result_text(), None, enabled=False),
             pystray.Menu.SEPARATOR,
             Item(
-                "⏸️ Pause" if is_running else "▶️ Start",
+                lambda text: "⏸️ Pause" if self.get_status().get('running', False) else "▶️ Start",
                 self._on_toggle_click
             ),
             Item("🔄 Run Now", self._on_run_now_click),
@@ -143,6 +122,38 @@ class TrayApp:
             pystray.Menu.SEPARATOR,
             Item("❌ Exit", self._on_exit_click),
         )
+
+    def _get_status_text(self) -> str:
+        """Get status text for menu."""
+        status = self.get_status()
+        is_running = status.get('running', False)
+        next_run = status.get('next_run')
+        
+        if is_running and next_run:
+            next_str = next_run.strftime('%H:%M') if isinstance(next_run, datetime) else str(next_run)
+            return f"Next run: {next_str}"
+        elif is_running:
+            return "Running..."
+        else:
+            return "Stopped"
+
+    def _get_result_text(self) -> str:
+        """Get last result text for menu."""
+        status = self.get_status()
+        last_result = status.get('last_result')
+        
+        if last_result:
+            result_status = last_result.get('status', '')
+            if result_status == 'Success':
+                amount = last_result.get('amount_restaked', 0)
+                return f"Last: +{amount:.4f} GNET"
+            elif result_status == 'Skipped':
+                return "Last: Skipped (below threshold)"
+            elif result_status == 'Failed':
+                return "Last: Failed"
+            else:
+                return "Last: Unknown"
+        return "No runs yet"
 
     def _on_toggle_click(self, icon, item) -> None:
         """Handle start/pause toggle."""

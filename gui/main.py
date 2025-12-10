@@ -146,15 +146,20 @@ class RestakeApp:
             
             if result and result.get('status') == 'Success':
                 amount = result.get('amount_restaked', 0)
-                if self.tray and self.config.notifications_enabled:
-                    self.tray.show_notification(
-                        "✅ Restake Successful",
-                        f"+{amount:.4f} GNET restaked"
-                    )
-                self.tray.update_icon(success=True)
+                if self.tray:
+                    self.tray.update_icon(success=True)
+                    if self.config.notifications_enabled:
+                        self.tray.show_notification(
+                            "✅ Restake Successful",
+                            f"+{amount:.4f} GNET restaked"
+                        )
+                if result:
+                    self.restaker.save_to_history(result)
+                return result
             
-            if result:
-                self.restaker.save_to_history(result)
+            # Skipped (below threshold) - result is None
+            if result is None:
+                return {'status': 'Skipped', 'reason': 'Below threshold'}
             
             return result or {}
         
