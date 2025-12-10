@@ -163,9 +163,9 @@ class TrayApp:
     def _on_exit_click(self, icon, item) -> None:
         """Handle exit click."""
         self.is_active = False
-        self.on_exit()
         if self.icon:
             self.icon.stop()
+        self.on_exit()
 
     def _update_menu(self) -> None:
         """Update the menu (refresh status)."""
