@@ -204,7 +204,8 @@ class RestakeApp:
         logger.info("Application exiting")
         if self.scheduler:
             self.scheduler.stop()
-        sys.exit(0)
+        # Don't call sys.exit() here - let icon.stop() handle cleanup
+        # The app will exit naturally when the tray icon stops
 
     def _get_status(self) -> dict:
         """Get current status for tray menu."""
