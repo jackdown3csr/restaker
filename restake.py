@@ -276,6 +276,10 @@ class GalacticaRestaker:
             pending_rewards = self.get_pending_rewards()
             min_threshold = self.config['restaking']['min_reward_threshold']
 
+            if pending_rewards is None:
+                self.logger.error(f"{Fore.RED}✗ Failed to fetch pending rewards - RPC error")
+                return None
+
             if pending_rewards < min_threshold:
                 self.logger.info(
                     f"{Fore.YELLOW}⏭ Skipping restake: "
