@@ -82,7 +82,8 @@ class RestakeApp:
                     'name': 'Cassiopeia Testnet',
                     'rpc_url': 'https://galactica-cassiopeia.g.alchemy.com/public',
                     'chain_id': 843843,
-                    'staking_contract': '0xC0F305b12a73c6c8c6fd0EE0459c93f5C73e1AB3'
+                    'staking_contract': '0xC0F305b12a73c6c8c6fd0EE0459c93f5C73e1AB3',
+                    'explorer': 'https://explorer.galactica.com'
                 },
                 'restaking': {
                     'min_reward_threshold': self.config.min_threshold
@@ -106,7 +107,8 @@ class RestakeApp:
                     'name': 'Galactica Mainnet',
                     'rpc_url': 'https://galactica-mainnet.g.alchemy.com/public',
                     'chain_id': 613419,
-                    'staking_contract': 826030585723602961507836977318968404690514027560
+                    'staking_contract': 826030585723602961507836977318968404690514027560,
+                    'explorer': 'https://explorer.galactica.com'
                 },
                 'restaking': {
                     'min_reward_threshold': self.config.min_threshold
