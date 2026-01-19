@@ -53,6 +53,7 @@ Your Stake: 1000 GNET  →  Pending Reward: 5 GNET  →  Auto-Restaked  →  New
 ✅ Desktop notifications  
 ✅ Encrypted key storage  
 ✅ Testnet support  
+✅ **Vesting reward alerts**  
 
 **Best for:** Set-and-forget users
 
