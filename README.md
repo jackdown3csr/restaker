@@ -29,7 +29,7 @@ Your Stake: 1000 GNET  →  Pending Reward: 5 GNET  →  Auto-Restaked  →  New
 
 > **Your private key NEVER leaves your computer.**
 
-| | GUI (v2.0) | CLI (v1.x) |
+| | GUI (v2.1) | CLI (v1.x) |
 |--|:--:|:--:|
 | Key Storage | 🔒 Windows DPAPI Encrypted | 📄 Local `.env.local` file |
 | Same security as | Chrome/Edge passwords | File permissions |
@@ -44,7 +44,7 @@ Your Stake: 1000 GNET  →  Pending Reward: 5 GNET  →  Auto-Restaked  →  New
 <tr>
 <td width="50%" valign="top">
 
-### 🖥️ GUI Application (v2.0)
+### 🖥️ GUI Application (v2.1)
 **Recommended for most users**
 
 ✅ One-click setup  
@@ -236,7 +236,7 @@ Amount to restake: 1.234567 GNET
 
 ```
 restaker/
-├── gui/                    # GUI Application (v2.0)
+├── gui/                    # GUI Application (v2.1)
 │   ├── main.py            # Entry point
 │   ├── config_manager.py  # Encrypted config storage
 │   ├── scheduler.py       # APScheduler wrapper
