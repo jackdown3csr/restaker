@@ -14,6 +14,7 @@ from gui.config_manager import ConfigManager, UserConfig, get_app_dir, get_base_
 from gui.scheduler import RestakeScheduler
 from gui.setup_dialog import SetupDialog
 from gui.tray import TrayApp
+from gui.vesting_checker import VestingChecker
 
 # Add base directory to path for imports (needed for restake.py)
 base_dir = get_base_dir()
@@ -45,6 +46,7 @@ class RestakeApp:
         self.scheduler: RestakeScheduler = None
         self.tray: TrayApp = None
         self.restaker = None  # Will hold GalacticaRestaker instance
+        self.vesting_checker: VestingChecker = None  # Will check for vesting rewards
 
     def _init_restaker(self) -> None:
         """Initialize the restaker with current config."""
@@ -65,6 +67,14 @@ class RestakeApp:
         try:
             self.restaker = GalacticaRestaker(config_path=str(config_file), dry_run=False)
             logger.info(f"Restaker initialized for {self.config.network}")
+            
+            # Initialize vesting checker for mainnet
+            if self.config.network == 'mainnet':
+                self.vesting_checker = VestingChecker(
+                    rpc_url='https://galactica-mainnet.g.alchemy.com/public',
+                    user_address=self.config.wallet_address
+                )
+                logger.info("Vesting checker initialized")
         except Exception as e:
             logger.error(f"Failed to initialize restaker: {e}")
             raise
@@ -155,7 +165,9 @@ class RestakeApp:
                         )
                 if result:
                     self.restaker.save_to_history(result)
-                return result
+            
+            # Check for vesting rewards after restake (mainnet only)
+            self._check_vesting_rewards()
             
             # Skipped (below threshold) - result is None
             if result is None:
@@ -176,6 +188,24 @@ class RestakeApp:
         logger.error(f"Scheduler error: {error}")
         if self.tray and self.config.notifications_enabled:
             self.tray.show_notification("❌ Error", str(error))
+
+    def _check_vesting_rewards(self) -> None:
+        """Check if new vesting rewards are available and notify user."""
+        if not self.vesting_checker:
+            return  # Only for mainnet
+        
+        try:
+            has_new, epochs_behind = self.vesting_checker.check_new_rewards()
+            
+            if has_new and self.tray and self.config.notifications_enabled:
+                logger.info(f"New vesting rewards available: {epochs_behind} epoch(s) behind")
+                self.tray.show_notification(
+                    "🎁 Vesting Rewards Available",
+                    f"You have {epochs_behind} unclaimed epoch(s).\n"
+                    "Visit app.galactica.com to claim!"
+                )
+        except Exception as e:
+            logger.warning(f"Vesting check failed: {e}")
 
     def _on_settings(self) -> None:
         """Open settings dialog."""
