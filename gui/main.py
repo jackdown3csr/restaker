@@ -200,9 +200,7 @@ class RestakeApp:
             if has_new and self.tray and self.config.notifications_enabled:
                 logger.info(f"New vesting rewards available: {epochs_behind} epoch(s) behind")
                 self.tray.show_notification(
-                    "🎁 Vesting Rewards Available",
-                    f"You have {epochs_behind} unclaimed epoch(s).\n"
-                    "Visit app.galactica.com to claim!"
+                    "🎁 Vesting Rewards available"
                 )
         except Exception as e:
             logger.warning(f"Vesting check failed: {e}")
