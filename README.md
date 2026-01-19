@@ -269,7 +269,9 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **2.0.0** | 2025-12-09 | 🖥️ GUI App, DPAPI encryption, notifications |
+| **2.1.0** | 2026-01-19 | 🔔 Vesting reward notifications |
+| 2.0.2 | 2025-12-10 | Bug fixes, dynamic menu |
+| 2.0.0 | 2025-12-09 | 🖥️ GUI App, DPAPI encryption |
 | 1.1.0 | 2025-11-05 | Cassiopeia testnet support |
 | 1.0.0 | 2025-11-04 | Initial CLI release |
 
