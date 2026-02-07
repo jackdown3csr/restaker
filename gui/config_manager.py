@@ -84,6 +84,7 @@ class UserConfig:
     auto_start: bool = False
     notifications_enabled: bool = True
     network: str = "mainnet"  # "mainnet" or "testnet"
+    dry_run: bool = False  # Simulate transactions without sending
 
 
 class ConfigManager:
@@ -150,7 +151,10 @@ class ConfigManager:
         try:
             with open(self.config_file, 'r') as f:
                 data = json.load(f)
-            return UserConfig(**data)
+            # Filter to known fields only (forward-compatibility)
+            known_fields = {f.name for f in UserConfig.__dataclass_fields__.values()}
+            filtered = {k: v for k, v in data.items() if k in known_fields}
+            return UserConfig(**filtered)
         except Exception:
             return UserConfig()
 

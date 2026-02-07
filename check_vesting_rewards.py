@@ -183,3 +183,31 @@ if __name__ == "__main__":
     print()
     print("💡 When 'Current epoch > Your last claimed', new rewards await!")
     print("=" * 60)
+    
+    # Copy-paste summary
+    w3 = Web3(Web3.HTTPProvider(RPC_URL))
+    contract = w3.eth.contract(address=VESTING_PROXY, abi=ABI)
+    total_claimed_all = contract.functions.totalRewardClaimed().call()
+    current_epoch = contract.functions.currentEpoch().call()
+    
+    # Get epoch history for summary
+    current_block = w3.eth.block_number
+    logs = w3.eth.get_logs({
+        "address": VESTING_PROXY,
+        "topics": [ADD_EPOCH_TOPIC],
+        "fromBlock": 0,
+        "toBlock": current_block
+    })
+    
+    print()
+    print("📋 COPY-PASTE SUMMARY:")
+    print(f"Total claimed (all): {total_claimed_all / 10**18:.2f} GNET")
+    print(f"Current epoch: {current_epoch}")
+    print()
+    print("Epoch History:")
+    for log in logs:
+        epoch_index = int(log['topics'][1].hex(), 16)
+        block_data = w3.eth.get_block(log['blockNumber'])
+        from datetime import datetime
+        dt = datetime.fromtimestamp(block_data['timestamp'])
+        print(f"Epoch {epoch_index}: {dt.strftime('%Y-%m-%d')}")

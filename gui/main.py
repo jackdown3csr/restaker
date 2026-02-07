@@ -5,6 +5,7 @@ Orchestrates config, scheduler, tray, and restake logic.
 """
 
 import logging
+from logging.handlers import RotatingFileHandler
 import sys
 import os
 import threading
@@ -30,7 +31,10 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(log_dir / 'gui.log', encoding='utf-8')
+        RotatingFileHandler(
+            log_dir / 'gui.log', encoding='utf-8',
+            maxBytes=5 * 1024 * 1024, backupCount=3
+        )
     ]
 )
 logger = logging.getLogger(__name__)
@@ -47,12 +51,14 @@ class RestakeApp:
         self.tray: TrayApp = None
         self.restaker = None  # Will hold GalacticaRestaker instance
         self.vesting_checker: VestingChecker = None  # Will check for vesting rewards
+        self._settings_open = False  # Guard against multiple settings dialogs
+        self._history_open = False  # Guard against multiple history windows
 
     def _init_restaker(self) -> None:
         """Initialize the restaker with current config."""
         from restake import GalacticaRestaker
 
-        # Set environment variables for restaker
+        # Set environment variables temporarily for restaker init
         os.environ['PRIVATE_KEY'] = self.private_key
         os.environ['WALLET_ADDRESS'] = self.config.wallet_address
 
@@ -65,9 +71,16 @@ class RestakeApp:
             config_file = self._create_default_config()
 
         try:
-            self.restaker = GalacticaRestaker(config_path=str(config_file), dry_run=False)
-            logger.info(f"Restaker initialized for {self.config.network}")
-            
+            self.restaker = GalacticaRestaker(
+                config_path=str(config_file), dry_run=self.config.dry_run
+            )
+            # Apply GUI settings over YAML defaults
+            self.restaker.config['restaking']['min_reward_threshold'] = self.config.min_threshold
+            self.restaker.config['gas']['max_gas_price_gwei'] = self.config.max_gas_gwei
+
+            logger.info(f"Restaker initialized for {self.config.network}"
+                        f"{' (dry-run)' if self.config.dry_run else ''}")
+
             # Initialize vesting checker for mainnet
             if self.config.network == 'mainnet':
                 self.vesting_checker = VestingChecker(
@@ -78,6 +91,9 @@ class RestakeApp:
         except Exception as e:
             logger.error(f"Failed to initialize restaker: {e}")
             raise
+        finally:
+            # Clean sensitive data from environment immediately
+            os.environ.pop('PRIVATE_KEY', None)
 
     def _create_default_config(self) -> Path:
         """Create a default config file in app directory."""
@@ -93,7 +109,7 @@ class RestakeApp:
                     'rpc_url': 'https://galactica-cassiopeia.g.alchemy.com/public',
                     'chain_id': 843843,
                     'staking_contract': '0xC0F305b12a73c6c8c6fd0EE0459c93f5C73e1AB3',
-                    'explorer': 'https://explorer.galactica.com'
+                    'explorer': 'https://explorer.galactica.com/'
                 },
                 'restaking': {
                     'min_reward_threshold': self.config.min_threshold
@@ -118,7 +134,7 @@ class RestakeApp:
                     'rpc_url': 'https://galactica-mainnet.g.alchemy.com/public',
                     'chain_id': 613419,
                     'staking_contract': 826030585723602961507836977318968404690514027560,
-                    'explorer': 'https://explorer.galactica.com'
+                    'explorer': 'https://explorer.galactica.com/'
                 },
                 'restaking': {
                     'min_reward_threshold': self.config.min_threshold
@@ -153,7 +169,7 @@ class RestakeApp:
 
         try:
             result = self.restaker.execute_restake()
-            
+
             if result and result.get('status') == 'Success':
                 amount = result.get('amount_restaked', 0)
                 if self.tray:
@@ -163,18 +179,37 @@ class RestakeApp:
                             "✅ Restake Successful",
                             f"+{amount:.4f} GNET restaked"
                         )
-                if result:
-                    self.restaker.save_to_history(result)
-            
+            elif result and result.get('status') == 'Dry Run':
+                amount = result.get('amount_restaked', 0)
+                if self.tray and self.config.notifications_enabled:
+                    self.tray.show_notification(
+                        "🧪 Dry Run Complete",
+                        f"Would restake {amount:.4f} GNET"
+                    )
+            elif result and result.get('status') == 'Failed':
+                if self.tray:
+                    self.tray.update_icon(success=False)
+                    if self.config.notifications_enabled:
+                        self.tray.show_notification(
+                            "❌ Restake Failed", "Check log for details"
+                        )
+
+            # Save all non-None results to history (consistent with CLI)
+            if result:
+                self.restaker.save_to_history(result)
+
             # Check for vesting rewards after restake (mainnet only)
             self._check_vesting_rewards()
-            
-            # Skipped (below threshold) - result is None
+
+            # execute_restake returns None for: below threshold, high gas, RPC/contract error
             if result is None:
-                return {'status': 'Skipped', 'reason': 'Below threshold'}
-            
-            return result or {}
-        
+                return {
+                    'status': 'Skipped',
+                    'reason': 'Below threshold, gas too high, or RPC error \u2014 see log',
+                }
+
+            return result
+
         except Exception as e:
             logger.error(f"Restake failed: {e}")
             if self.tray:
@@ -200,26 +235,33 @@ class RestakeApp:
             if has_new and self.tray and self.config.notifications_enabled:
                 logger.info(f"New vesting rewards available: {epochs_behind} epoch(s) behind")
                 self.tray.show_notification(
-                    "🎁 Vesting Rewards available"
+                    "🎁 Vesting Rewards",
+                    f"{epochs_behind} epoch(s) available to claim"
                 )
         except Exception as e:
             logger.warning(f"Vesting check failed: {e}")
 
     def _on_settings(self) -> None:
         """Open settings dialog."""
+        if self._settings_open:
+            return  # Prevent multiple dialogs
+        self._settings_open = True
+
         def on_complete(config: UserConfig, key: str):
             self.config = config
             self.private_key = key
             self.restaker = None  # Force reinit
-            
+
             # Restart scheduler with new interval
             if self.scheduler and self.scheduler.is_running:
                 self.scheduler.stop()
                 self.scheduler.start(self.config.interval_hours)
 
-        # Run dialog in main thread
-        dialog = SetupDialog(self.config_manager, on_complete)
-        threading.Thread(target=dialog.show, daemon=True).start()
+        try:
+            dialog = SetupDialog(self.config_manager, on_complete)
+            dialog.show()
+        finally:
+            self._settings_open = False
 
     def _on_run_now(self) -> None:
         """Trigger immediate restake."""
@@ -227,12 +269,17 @@ class RestakeApp:
 
     def _on_toggle(self, start: bool) -> None:
         """Toggle scheduler on/off."""
-        if start:
-            if not self.restaker:
-                self._init_restaker()
-            self.scheduler.start(self.config.interval_hours)
-        else:
-            self.scheduler.stop()
+        try:
+            if start:
+                if not self.restaker:
+                    self._init_restaker()
+                self.scheduler.start(self.config.interval_hours)
+            else:
+                self.scheduler.stop()
+        except Exception as e:
+            logger.error(f"Toggle failed: {e}")
+            if self.tray and self.config.notifications_enabled:
+                self.tray.show_notification("❌ Error", str(e))
 
     def _on_exit(self) -> None:
         """Handle application exit."""
@@ -247,6 +294,34 @@ class RestakeApp:
         if self.scheduler:
             return self.scheduler.get_status()
         return {'running': False}
+
+    def _get_csv_path(self) -> str:
+        """Get path to the history CSV file."""
+        if self.restaker:
+            return self.restaker.csv_file
+        # Fallback: derive from config
+        if self.config.network == 'testnet':
+            return str(app_dir / 'data' / 'history_testnet.csv')
+        return str(app_dir / 'data' / 'history.csv')
+
+    def _show_history(self) -> None:
+        """Show restake history window (non-blocking)."""
+        if self._history_open:
+            return
+        self._history_open = True
+
+        def _open():
+            from gui.history_window import HistoryWindow
+            csv_path = self._get_csv_path()
+            try:
+                window = HistoryWindow(csv_path)
+                window.show()
+            except Exception as e:
+                logger.error(f"Failed to open history: {e}")
+            finally:
+                self._history_open = False
+
+        threading.Thread(target=_open, daemon=True).start()
 
     def run(self) -> None:
         """Run the application."""
@@ -287,6 +362,7 @@ class RestakeApp:
             on_toggle=self._on_toggle,
             on_exit=self._on_exit,
             get_status=self._get_status,
+            on_history=self._show_history,
         )
 
         # Start scheduler

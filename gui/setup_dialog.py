@@ -22,6 +22,7 @@ SECURITY NOTE:
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+from pathlib import Path
 from typing import Callable, Optional
 
 from .config_manager import ConfigManager, UserConfig
@@ -50,7 +51,7 @@ class SetupDialog:
         """Show the setup dialog. Returns True if setup completed."""
         self.root = tk.Tk()
         self.root.title("Galactica Restaker - Setup")
-        self.root.geometry("450x480")
+        self.root.geometry("450x580")
         self.root.resizable(False, False)
         
         # Set window icon
@@ -135,6 +136,16 @@ class SetupDialog:
         threshold_entry.pack(side=tk.LEFT, padx=(10, 5))
         ttk.Label(threshold_frame, text="GNET").pack(side=tk.LEFT)
 
+        # Max gas price
+        gas_frame = ttk.Frame(main_frame)
+        gas_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(gas_frame, text="Max gas price:").pack(side=tk.LEFT)
+        self.max_gas_var = tk.StringVar(value=str(self.config.max_gas_gwei))
+        gas_entry = ttk.Entry(gas_frame, textvariable=self.max_gas_var, width=8)
+        gas_entry.pack(side=tk.LEFT, padx=(10, 5))
+        ttk.Label(gas_frame, text="Gwei").pack(side=tk.LEFT)
+
         # Network selection
         network_frame = ttk.Frame(main_frame)
         network_frame.pack(fill=tk.X, pady=(0, 10))
@@ -169,6 +180,14 @@ class SetupDialog:
             variable=self.notify_var
         )
         notify_cb.pack(anchor=tk.W)
+
+        self.dryrun_var = tk.BooleanVar(value=self.config.dry_run)
+        dryrun_cb = ttk.Checkbutton(
+            options_frame,
+            text="Dry-run mode (simulate only)",
+            variable=self.dryrun_var
+        )
+        dryrun_cb.pack(anchor=tk.W)
 
         # Buttons
         button_frame = ttk.Frame(main_frame)
@@ -229,10 +248,34 @@ class SetupDialog:
             messagebox.showerror("Error", "Invalid private key format.")
             return False
 
+        # Verify private key matches wallet address
+        try:
+            from eth_account import Account
+            derived = Account.from_key(key).address
+            if derived.lower() != wallet.lower():
+                messagebox.showerror(
+                    "Error",
+                    f"Private key does not match wallet address.\n"
+                    f"Key derives: {derived}\n"
+                    f"You entered: {wallet}"
+                )
+                return False
+        except Exception as e:
+            messagebox.showerror("Error", f"Invalid private key: {e}")
+            return False
+
         try:
             float(self.threshold_var.get())
         except ValueError:
             messagebox.showerror("Error", "Invalid threshold value.")
+            return False
+
+        try:
+            val = float(self.max_gas_var.get())
+            if val <= 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Error", "Invalid max gas price value.")
             return False
 
         return True
@@ -246,9 +289,11 @@ class SetupDialog:
         self.config.wallet_address = self.wallet_entry.get().strip()
         self.config.interval_hours = int(self.interval_var.get())
         self.config.min_threshold = float(self.threshold_var.get())
+        self.config.max_gas_gwei = float(self.max_gas_var.get())
         self.config.network = self.network_var.get()
         self.config.auto_start = self.autostart_var.get()
         self.config.notifications_enabled = self.notify_var.get()
+        self.config.dry_run = self.dryrun_var.get()
 
         private_key = self.key_entry.get().strip()
         if not private_key.startswith("0x"):
@@ -281,13 +326,21 @@ class SetupDialog:
             import winreg
             import sys
 
+            if getattr(sys, 'frozen', False):
+                # PyInstaller EXE \u2014 sys.executable is the .exe itself
+                cmd = f'"{ sys.executable}"'
+            else:
+                # Running as script \u2014 need python.exe + script path
+                script = str(Path(__file__).resolve().parent / 'main.py')
+                cmd = f'"{sys.executable}" "{script}"'
+
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
                 r"Software\Microsoft\Windows\CurrentVersion\Run",
                 0,
                 winreg.KEY_SET_VALUE
             )
-            winreg.SetValueEx(key, "GalacticaRestaker", 0, winreg.REG_SZ, sys.executable)
+            winreg.SetValueEx(key, "GalacticaRestaker", 0, winreg.REG_SZ, cmd)
             winreg.CloseKey(key)
         except Exception:
             pass  # Fail silently

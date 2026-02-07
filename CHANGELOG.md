@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-02-07
+
+### Added
+- **History Window** — new "📊 History" menu item in system tray opens a sortable table
+  of all restake operations with color-coded status rows and summary statistics
+- **Dry-run mode** toggle in Settings dialog (simulate transactions without sending)
+- **Max gas price** setting exposed in Settings dialog
+- **Wallet ↔ key validation** in setup dialog — verifies the private key derives the entered address
+
+### Fixed
+- **Critical**: `show_notification("🎁 Vesting Rewards available")` was missing the `message` argument — caused crash
+- **Critical**: Autostart registry entry wrote bare `python.exe` without script path
+- **Critical**: Explorer URL missing trailing slash in default configs
+- Scheduler leaked `BackgroundScheduler` instances on stop/restart cycle
+- Settings dialog could be opened multiple times simultaneously (now guarded)
+- `_on_toggle` exceptions no longer silently crash the tray
+- `_do_restake` now returns meaningful status for all result types (Dry Run, Failed, Skipped)
+- Private key removed from `os.environ` immediately after restaker init
+
+### Changed
+- Log handler switched to `RotatingFileHandler` (5 MB max, 3 backups)
+- GUI settings (min threshold, max gas) now override YAML defaults at runtime
+- `ConfigManager.load()` filters unknown keys for forward-compatibility
+- Version bumped to 2.2.0
+
 ## [2.1.1] - 2026-01-19
 
 ### Changed

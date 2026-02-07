@@ -50,6 +50,7 @@ class RestakeScheduler:
         if self.is_running:
             self.stop()
 
+        self._ensure_scheduler()
         self.job = self.scheduler.add_job(
             self._execute_restake,
             trigger=IntervalTrigger(hours=interval_hours),
@@ -67,10 +68,14 @@ class RestakeScheduler:
         """Stop the scheduler."""
         if self.is_running:
             self.scheduler.shutdown(wait=False)
-            self.scheduler = BackgroundScheduler()  # Reset for restart
             self.is_running = False
             self.job = None
             logger.info("Scheduler stopped")
+
+    def _ensure_scheduler(self) -> None:
+        """Ensure a fresh scheduler instance exists for (re)starting."""
+        if not self.is_running:
+            self.scheduler = BackgroundScheduler()
 
     def run_now(self) -> None:
         """Trigger immediate restake (outside of schedule)."""

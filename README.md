@@ -29,7 +29,7 @@ Your Stake: 1000 GNET  →  Pending Reward: 5 GNET  →  Auto-Restaked  →  New
 
 > **Your private key NEVER leaves your computer.**
 
-| | GUI (v2.1) | CLI (v1.x) |
+| | GUI (v2.2) | CLI (v1.x) |
 |--|:--:|:--:|
 | Key Storage | 🔒 Windows DPAPI Encrypted | 📄 Local `.env.local` file |
 | Same security as | Chrome/Edge passwords | File permissions |
@@ -44,7 +44,7 @@ Your Stake: 1000 GNET  →  Pending Reward: 5 GNET  →  Auto-Restaked  →  New
 <tr>
 <td width="50%" valign="top">
 
-### 🖥️ GUI Application (v2.1)
+### 🖥️ GUI Application (v2.2)
 **Recommended for most users**
 
 ✅ One-click setup  
@@ -53,7 +53,9 @@ Your Stake: 1000 GNET  →  Pending Reward: 5 GNET  →  Auto-Restaked  →  New
 ✅ Desktop notifications  
 ✅ Encrypted key storage  
 ✅ Testnet support  
-✅ **Vesting reward alerts**  
+✅ Vesting reward alerts  
+✅ **Restake history viewer**  
+✅ **Dry-run mode**  
 
 **Best for:** Set-and-forget users
 
@@ -236,12 +238,14 @@ Amount to restake: 1.234567 GNET
 
 ```
 restaker/
-├── gui/                    # GUI Application (v2.1)
+├── gui/                    # GUI Application (v2.2)
 │   ├── main.py            # Entry point
 │   ├── config_manager.py  # Encrypted config storage
 │   ├── scheduler.py       # APScheduler wrapper
 │   ├── setup_dialog.py    # First-run wizard
 │   ├── tray.py            # System tray integration
+│   ├── history_window.py  # Restake history viewer
+│   ├── vesting_checker.py # Vesting reward monitor
 │   └── build.spec         # PyInstaller config
 ├── scripts/               # Automation helpers
 │   └── setup_scheduler.ps1
@@ -269,7 +273,8 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **2.1.1** | 2026-01-19 | 🔔 Vesting reward notifications |
+| **2.2.0** | 2026-02-07 | 📊 History viewer, dry-run mode, bug fixes |
+| 2.1.1 | 2026-01-19 | 🔔 Vesting reward notifications |
 | 2.0.2 | 2025-12-10 | Bug fixes, dynamic menu |
 | 2.0.0 | 2025-12-09 | 🖥️ GUI App, DPAPI encryption |
 | 1.1.0 | 2025-11-05 | Cassiopeia testnet support |

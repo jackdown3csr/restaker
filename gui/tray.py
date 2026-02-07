@@ -85,6 +85,7 @@ class TrayApp:
         on_toggle: Callable[[bool], None],
         on_exit: Callable[[], None],
         get_status: Callable[[], dict],
+        on_history: Optional[Callable[[], None]] = None,
     ):
         """
         Initialize tray application.
@@ -95,12 +96,14 @@ class TrayApp:
             on_toggle: Callback when scheduler is toggled (True=start, False=stop).
             on_exit: Callback on application exit.
             get_status: Callback to get current scheduler status.
+            on_history: Optional callback to open history window.
         """
         self.on_settings = on_settings
         self.on_run_now = on_run_now
         self.on_toggle = on_toggle
         self.on_exit = on_exit
         self.get_status = get_status
+        self.on_history = on_history
         
         self.is_active = True
         self.icon: Optional[pystray.Icon] = None
@@ -117,6 +120,7 @@ class TrayApp:
                 self._on_toggle_click
             ),
             Item("🔄 Run Now", self._on_run_now_click),
+            Item("📊 History", self._on_history_click),
             pystray.Menu.SEPARATOR,
             Item("⚙️ Settings", self._on_settings_click),
             pystray.Menu.SEPARATOR,
@@ -166,6 +170,11 @@ class TrayApp:
         """Handle run now click."""
         self.on_run_now()
         self._update_menu()
+
+    def _on_history_click(self, icon, item) -> None:
+        """Handle history click."""
+        if self.on_history:
+            self.on_history()
 
     def _on_settings_click(self, icon, item) -> None:
         """Handle settings click."""
