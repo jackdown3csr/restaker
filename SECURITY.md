@@ -20,8 +20,8 @@ When you enter your private key in the setup dialog:
 1. **Entry** - Key is typed into a masked field (shows `•••••`)
 2. **Encryption** - Before saving, key is encrypted using [Windows DPAPI](https://docs.microsoft.com/en-us/windows/win32/api/dpapi/)
 3. **Storage** - Encrypted blob saved to `%APPDATA%\GalacticaRestaker\config.json`
-4. **Usage** - Decrypted only in-memory when signing transactions
-5. **Memory** - Cleared after transaction is signed
+4. **Usage** - Decrypted only in-memory when needed for transaction signing
+5. **Scope** - Key stays in process memory while the app is running (needed for scheduled restakes)
 
 ### What is Windows DPAPI?
 
