@@ -27,63 +27,24 @@ The bot calls `increaseUnlockTime()` on the [veGNET contract](https://explorer.g
 
 ---
 
-## 🔐 Security First
+## 🔐 Security
 
 > **Your private key NEVER leaves your computer.**
 
-| | GUI | CLI |
-|--|:--:|:--:|
-| Key Storage | 🔒 Windows DPAPI Encrypted | 📄 Local `.env.local` file |
-| Same security as | Chrome/Edge passwords | File permissions |
+- **GUI** — key is encrypted with Windows DPAPI (same protection as Chrome/Edge passwords)
+- **CLI** — key lives in your local `.env.local` file
 
-📖 Full details in [SECURITY.md](SECURITY.md) — **all code is open source, audit it yourself!**
+All code is open source — [audit it yourself](SECURITY.md).
 
 ---
 
-## 📦 Choose Your Version
+## 🖥️ GUI — Quick Start
 
-<table>
-<tr>
-<td width="50%" valign="top">
+### Option A: Download EXE (easiest)
 
-### 🖥️ GUI Application
-**Recommended for most users**
+[**📥 Download GalacticaExtender.exe**](https://github.com/jackdown3csr/restaker/releases/latest) — no Python needed, just run it.
 
-✅ One-click setup
-✅ Dashboard with live stats
-✅ Runs in system tray
-✅ Built-in scheduler
-✅ Desktop notifications
-✅ Encrypted key storage
-✅ Live log viewer
-
-**Best for:** Set-and-forget users
-
-</td>
-<td width="50%" valign="top">
-
-### ⌨️ CLI Script
-**For advanced users**
-
-✅ Full control
-✅ Scriptable
-✅ Task Scheduler integration
-✅ `--dry-run` mode
-✅ `--status` check
-✅ `--interval` daemon mode
-
-**Best for:** Power users, automation
-
-</td>
-</tr>
-</table>
-
----
-
-<details open>
-<summary><h2>🖥️ GUI Version — Quick Start</h2></summary>
-
-### Run from Source
+### Option B: Run from source
 
 ```cmd
 git clone https://github.com/jackdown3csr/restaker.git
@@ -92,23 +53,17 @@ pip install -r requirements.txt
 python extend_gui.py
 ```
 
-### What You'll See
+The GUI has three tabs:
 
-The GUI opens with three tabs:
+| Tab | What it shows |
+|-----|---------------|
+| **Dashboard** | Locked GNET, veGNET balance, days remaining, lock end date, Extend button |
+| **Settings** | Wallet address, private key (encrypted), auto-extend interval |
+| **Log** | Live log output |
 
-- **Dashboard** — Locked GNET, veGNET balance, days remaining, lock end date, extend button
-- **Settings** — Wallet address, private key (DPAPI encrypted), auto-extend interval
-- **Log** — Live log output
+After setup the app minimizes to your **system tray** — the scheduler keeps running in the background. Right-click the tray icon for quick actions.
 
-On first run, if you previously used the Restaker GUI, your wallet is imported automatically.
-
-### System Tray
-
-After setup, the app minimizes to your system tray:
-
-- **Double-click** tray icon to show window
-- **Right-click** for menu: Show Window, Extend Now, Quit
-- Closing the window hides to tray (scheduler keeps running)
+> 💡 On first run, if you previously used the Restaker GUI, your wallet is imported automatically.
 
 ### Build EXE
 
@@ -117,14 +72,9 @@ pip install pyinstaller
 pyinstaller --onefile --noconsole --name GalacticaExtender extend_gui.py
 ```
 
-</details>
-
 ---
 
-<details open>
-<summary><h2>⌨️ CLI Version — Quick Start</h2></summary>
-
-### Setup
+## ⌨️ CLI — Quick Start
 
 ```cmd
 git clone https://github.com/jackdown3csr/restaker.git
@@ -138,66 +88,18 @@ PRIVATE_KEY=0xYOUR_PRIVATE_KEY
 WALLET_ADDRESS=0xYOUR_ADDRESS
 ```
 
-### Usage
-
+Usage:
 ```cmd
-# Check your lock status
-python extend.py --status
-
-# Dry run (preview without sending tx)
-python extend.py --dry-run
-
-# Extend once
-python extend.py
-
-# Run as daemon (extend every 24 hours)
-python extend.py --interval 24
+python extend.py --status       # Check your lock status
+python extend.py --dry-run      # Preview without sending tx
+python extend.py                # Extend once
+python extend.py --interval 24  # Run every 24 hours (daemon)
 ```
 
-### Command-Line Flags
-
-| Flag | Description |
-|------|-------------|
-| `--status` | Show lock info and exit |
-| `--dry-run` | Preview transaction without sending |
-| `--interval N` | Run every N hours (daemon mode) |
-
-### Automating with Windows Task Scheduler
+### Automate with Task Scheduler
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/setup_scheduler.ps1 -ScriptPath C:\path\to\restaker\extend.py
-```
-
-Or create a task manually:
-1. Program: `C:\path\to\python.exe`
-2. Arguments: `C:\path\to\restaker\extend.py`
-3. Trigger: Daily / every 24h
-
-</details>
-
----
-
-## 📁 Project Structure
-
-```
-restaker/
-├── extend.py              # CLI entry point (Lock Extender)
-├── extend_gui.py          # GUI entry point (Lock Extender)
-├── requirements.txt       # Python dependencies
-├── config.yaml            # Network configuration
-├── gui/                   # Legacy: Restaker GUI (v2.2)
-│   ├── main.py
-│   ├── config_manager.py
-│   ├── scheduler.py
-│   ├── setup_dialog.py
-│   ├── tray.py
-│   └── build.spec
-├── restake.py             # Legacy: CLI restaker
-├── restake_testnet.py     # Legacy: Testnet restaker
-├── scripts/
-│   └── setup_scheduler.ps1
-└── data/
-    └── history.csv
+powershell -ExecutionPolicy Bypass -File scripts/setup_scheduler.ps1 -ScriptPath C:\path\to\extend.py
 ```
 
 ---
@@ -212,45 +114,20 @@ restaker/
 ---
 
 <details>
-<summary><h2>📦 Legacy: Auto-Restaker (staking ends Feb 2026)</h2></summary>
+<summary><h2>📦 Legacy: GNET Auto-Restaker</h2></summary>
 
-> **Note:** GNET staking is ending mid-February 2026. The restaker below will stop working after that.
+> GNET staking ended in February 2026. The restaker no longer works.
 > If you had GNET staked, consider locking it as veGNET and using the Lock Extender above.
 
-### What It Did
+The restaker automatically claimed pending staking rewards and restaked them to compound your gains.
 
-Automatically claimed pending GNET staking rewards and restaked them — compounding your gains.
+**GUI:** `python gui/main.py` · **CLI:** `python restake.py` · **Testnet:** `python restake_testnet.py`
 
-```
-Your Stake: 1000 GNET → Pending Reward: 5 GNET → Auto-Restaked → New Stake: 1005 GNET
-```
-
-### GUI Version
-
-```cmd
-python gui/main.py
-```
-
-### CLI Version
-
-```cmd
-# Configure
-cp .env.example .env.local
-# Edit .env.local with your wallet + key
-
-# Dry run
-python restake.py --dry-run
-
-# Run
-python restake.py
-```
-
-### Testnet
-
-```cmd
-python restake_testnet.py --dry-run
-python restake_testnet.py
-```
+| Version | Date | Highlights |
+|---------|------|------------|
+| 2.2.0 | 2026-02-07 | History viewer, dry-run mode |
+| 2.0.0 | 2025-12-09 | GUI App, DPAPI encryption |
+| 1.0.0 | 2025-11-04 | Initial CLI release |
 
 </details>
 
@@ -263,17 +140,12 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 | Version | Date | Highlights |
 |---------|------|------------|
 | **3.0.0** | 2026-02-10 | 🔒 veGNET Lock Extender (GUI + CLI) |
-| 2.2.0 | 2026-02-07 | 📊 Restaker: History viewer, dry-run mode |
-| 2.0.0 | 2025-12-09 | 🖥️ Restaker: GUI App, DPAPI encryption |
-| 1.0.0 | 2025-11-04 | Initial CLI restaker release |
 
 ---
 
 ## 📄 License
 
 MIT — contribute, fork, or adapt as you wish. Pull requests welcome!
-
----
 
 <div align="center">
 

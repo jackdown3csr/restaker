@@ -11,49 +11,53 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install web3 eth-account python-dotenv pyyaml colorama pystray Pillow APScheduler pywin32
           pip install pyinstaller
-      
-      - name: Build EXE
+
+      - name: Build Lock Extender EXE
         run: |
-          pyinstaller gui/build.spec
-      
+          pyinstaller --onefile --noconsole --name GalacticaExtender extend_gui.py
+
       - name: Generate checksums
+        shell: pwsh
         run: |
           cd dist
-          (Get-FileHash GalacticaRestaker.exe -Algorithm SHA256).Hash + "  GalacticaRestaker.exe" | Out-File -Encoding ASCII SHA256SUMS.txt
-        shell: pwsh
-      
+          (Get-FileHash GalacticaExtender.exe -Algorithm SHA256).Hash + "  GalacticaExtender.exe" | Out-File -Encoding ASCII SHA256SUMS.txt
+
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/GalacticaRestaker.exe
+            dist/GalacticaExtender.exe
             dist/SHA256SUMS.txt
           body: |
-            ## 📥 Download
-            
-            **Windows Users:** Download `GalacticaRestaker.exe` - no installation required!
-            
-            ### Verify Download (optional)
+            ## 🔒 Galactica veGNET Lock Extender
+
+            Automatically keeps your veGNET lock at maximum (730 days) to maximize gUBI rewards.
+
+            ### 📥 Download
+
+            **Windows:** Download `GalacticaExtender.exe` — no installation needed, just run it.
+
+            ### Verify download (optional)
             ```powershell
-            (Get-FileHash GalacticaRestaker.exe -Algorithm SHA256).Hash
+            (Get-FileHash GalacticaExtender.exe -Algorithm SHA256).Hash
             ```
-            Compare with the hash in `SHA256SUMS.txt`
-            
+            Compare with `SHA256SUMS.txt`.
+
             ### What's New
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
           draft: false
