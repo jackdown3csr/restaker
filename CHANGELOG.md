@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-02-10
+
+### Added
+- **veGNET Lock Extender** — new tool replacing the staking restaker
+  - `extend.py` — CLI: `--status`, `--dry-run`, `--interval N` (daemon mode)
+  - `extend_gui.py` — GUI with Dashboard (live stats), Settings, Log tabs
+  - System tray icon with APScheduler auto-extend
+  - Auto-imports wallet from Restaker v1 config (DPAPI encrypted)
+  - Calls `increaseUnlockTime()` to keep veGNET lock at 730-day maximum
+
+### Changed
+- README rewritten — Lock Extender is now the main project
+- Old staking Restaker moved to "Legacy" section (staking ends Feb 2026)
+
 ## [2.2.0] - 2026-02-07
 
 ### Added

@@ -11,12 +11,16 @@ pyyaml>=6.0
 
 # Utilities
 colorama>=0.4.6
+requests>=2.31.0
 
-# GUI dependencies
+# GUI v1 (legacy tkinter tray app)
 pystray>=0.19.0
 Pillow>=10.0.0
 APScheduler>=3.10.0
 pywin32>=306  # Windows DPAPI for encrypted key storage
+
+# GUI v2 (NiceGUI web dashboard)
+nicegui>=2.0.0
 
 # Build tools (optional, for creating .exe)
 # pyinstaller>=6.0.0
