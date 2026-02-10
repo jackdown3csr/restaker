@@ -26,11 +26,17 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────
+def _resource_path(relative: str) -> Path:
+    """Resolve path to bundled resource (PyInstaller or dev)."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+    return base / relative
+
 APP_DIR = Path(os.environ.get("APPDATA", Path.home())) / "GalacticaExtender"
 APP_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR = APP_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
+LOGO_PATH = _resource_path("LOGO_PNG.png")
 
 # ── Logging ────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -126,19 +132,22 @@ class ExtenderGUI:
 
         # ── Root window ────────────────────────────────────────
         self.root = tk.Tk()
-        self.root.title("Galactica Lock Extender")
+        self.root.title("veGNET Lock Extender")
         self.root.geometry("520x520")
         self.root.minsize(480, 460)
         self.root.resizable(True, True)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        # Set window icon
+        # Set window icon from logo
         try:
-            from PIL import Image, ImageDraw, ImageTk
-            img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(img)
-            draw.ellipse([2, 2, 30, 30], fill="#00D4AA")
-            draw.ellipse([8, 8, 24, 24], fill="#1a1e2e")
+            from PIL import Image, ImageTk
+            if LOGO_PATH.exists():
+                img = Image.open(LOGO_PATH).resize((64, 64), Image.LANCZOS)
+            else:
+                from PIL import ImageDraw
+                img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(img)
+                draw.ellipse([2, 2, 30, 30], fill="#00D4AA")
             self._icon_photo = ImageTk.PhotoImage(img)
             self.root.iconphoto(True, self._icon_photo)
         except Exception:
@@ -160,7 +169,7 @@ class ExtenderGUI:
         # ── Header ─────────────────────────────────────────────
         header = ttk.Frame(self.root, padding="15 10 15 5")
         header.pack(fill="x")
-        ttk.Label(header, text="Galactica Lock Extender", style="Title.TLabel").pack(side="left")
+        ttk.Label(header, text="veGNET Lock Extender", style="Title.TLabel").pack(side="left")
 
         self.status_label = ttk.Label(header, text="", style="Muted.TLabel")
         self.status_label.pack(side="right")
@@ -477,12 +486,13 @@ class ExtenderGUI:
             logger.warning(f"Tray dependencies missing ({e}) — running without tray")
             return
 
-        # Create tray icon
-        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        draw.ellipse([4, 4, 60, 60], fill="#00D4AA")
-        draw.ellipse([16, 16, 48, 48], fill="#1a1e2e")
-        draw.text((22, 18), "E", fill="#00D4AA")
+        # Create tray icon from logo
+        if LOGO_PATH.exists():
+            img = Image.open(LOGO_PATH).resize((64, 64), Image.LANCZOS)
+        else:
+            img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            draw.ellipse([4, 4, 60, 60], fill="#00D4AA")
 
         # Scheduler
         self.scheduler = BackgroundScheduler()
@@ -517,7 +527,7 @@ class ExtenderGUI:
             Item("Quit", on_quit),
         )
 
-        self.tray = pystray.Icon("GalacticaExtender", img, "Galactica Lock Extender", menu)
+        self.tray = pystray.Icon("GalacticaExtender", img, "veGNET Lock Extender", menu)
         threading.Thread(target=self.tray.run, daemon=True).start()
 
     def _scheduled_extend(self):
@@ -547,7 +557,37 @@ class ExtenderGUI:
                 self.tray.notify(msg, title)
             except Exception:
                 pass
+        # Also show a Windows toast with the app icon
+        try:
+            from winotify import Notification
+            ico_path = self._get_ico_path()
+            toast = Notification(
+                app_id="veGNET Lock Extender",
+                title=title,
+                msg=msg,
+                icon=str(ico_path) if ico_path else "",
+            )
+            toast.show()
+        except Exception:
+            pass  # winotify not installed — fall back to pystray only
         logger.info(f"[{title}] {msg}")
+
+    @staticmethod
+    def _get_ico_path() -> Path | None:
+        """Convert LOGO_PNG.png → .ico in AppData (cached)."""
+        ico = APP_DIR / "icon.ico"
+        if ico.exists():
+            return ico
+        if not LOGO_PATH.exists():
+            return None
+        try:
+            from PIL import Image
+            img = Image.open(LOGO_PATH)
+            img.save(str(ico), format="ICO",
+                     sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+            return ico
+        except Exception:
+            return None
 
     # ── Window close → minimize to tray ────────────────────────
 

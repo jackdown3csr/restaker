@@ -24,12 +24,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install web3 eth-account python-dotenv pyyaml colorama pystray Pillow APScheduler pywin32
+          pip install web3 eth-account python-dotenv pyyaml colorama pystray winotify Pillow APScheduler pywin32
           pip install pyinstaller
 
       - name: Build Lock Extender EXE
         run: |
-          pyinstaller --onefile --noconsole --name GalacticaExtender extend_gui.py
+          pyinstaller --onefile --noconsole --name GalacticaExtender --add-data "LOGO_PNG.png;." --icon LOGO_PNG.png extend_gui.py
 
       - name: Generate checksums
         shell: pwsh
