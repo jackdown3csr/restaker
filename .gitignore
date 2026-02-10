@@ -40,6 +40,9 @@ data/history*.csv
 *.swo
 *~
 
+# Experimental
+gui_v2/
+
 # OS
 .DS_Store
 Thumbs.db
