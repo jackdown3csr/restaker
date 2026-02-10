@@ -139,7 +139,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| **3.0.0** | 2026-02-10 | 🔒 veGNET Lock Extender (GUI + CLI) |
+| **1.0.0** | 2026-02-10 | 🔒 veGNET Lock Extender (GUI + CLI) |
 
 ---
 
