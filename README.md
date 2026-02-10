@@ -68,10 +68,10 @@ After setup the app minimizes to your **system tray** and extends your lock auto
 <details>
 <summary>📦 Legacy: GNET Auto-Restaker</summary>
 
-> GNET staking ended in February 2026. The restaker no longer works.
-> If you had GNET staked, consider locking it as veGNET and using the Lock Extender above.
+> GNET staking ends at the end of February 2026. After that the restaker will no longer work.
+> If you have GNET staked, consider locking it as veGNET and using the Lock Extender above.
 
-**GUI:** `python gui/main.py` · **CLI:** `python restake.py`
+Last restaker release: [**GalacticaRestaker.exe v2.2.0**](https://github.com/jackdown3csr/restaker/releases/tag/v2.2.0)
 
 </details>
 
