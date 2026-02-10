@@ -57,9 +57,11 @@ The GUI has three tabs:
 
 | Tab | What it shows |
 |-----|---------------|
-| **Dashboard** | Locked GNET, veGNET balance, days remaining, lock end date, Extend button |
-| **Settings** | Wallet address, private key (encrypted), auto-extend interval |
+| **Dashboard** | Locked GNET, veGNET balance, days remaining, lock end, vesting status, Extend button |
+| **Settings** | Wallet, private key (DPAPI encrypted), intervals, vesting alerts, autostart |
 | **Log** | Live log output |
+
+**Vesting rewards checker** — enable in Settings to get a Windows notification whenever a new vesting epoch is available to claim. The dashboard shows your epoch status and total GNET claimed so far.
 
 After setup the app minimizes to your **system tray** — the scheduler keeps running in the background. Right-click the tray icon for quick actions.
 
@@ -139,6 +141,8 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| **1.0.2** | 2026-02-10 | Vesting rewards checker, autostart, UI polish |
+| **1.0.1** | 2026-02-10 | App icon, toast notifications |
 | **1.0.0** | 2026-02-10 | 🔒 veGNET Lock Extender (GUI + CLI) |
 
 ---

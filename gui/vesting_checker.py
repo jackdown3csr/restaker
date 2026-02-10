@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Mainnet RewardDistributor (Vesting)
 VESTING_CONTRACT = "0x80BCB71F63f11344F5483d108374fa394A587AbE"
 
-# Minimal ABI for checking epochs
+# Minimal ABI for checking epochs + claimed totals
 VESTING_ABI = [
     {
         "inputs": [],
@@ -25,6 +25,13 @@ VESTING_ABI = [
     {
         "inputs": [{"internalType": "address", "name": "", "type": "address"}],
         "name": "userLastClaimedEpoch",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+        "name": "userTotalRewardClaimed",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
         "stateMutability": "view",
         "type": "function"
@@ -51,32 +58,37 @@ class VestingChecker:
         )
         self._last_checked_epoch: Optional[int] = None
     
-    def check_new_rewards(self) -> Tuple[bool, int]:
+    def check_new_rewards(self) -> Tuple[bool, int, float]:
         """
         Check if there are new vesting rewards to claim.
         
         Returns:
-            Tuple of (has_new_rewards, epochs_behind)
+            Tuple of (has_new_rewards, epochs_behind, total_claimed_gnet)
         """
         try:
             current_epoch = self.contract.functions.currentEpoch().call()
             user_last_epoch = self.contract.functions.userLastClaimedEpoch(
                 self.user_address
             ).call()
+            total_claimed_wei = self.contract.functions.userTotalRewardClaimed(
+                self.user_address
+            ).call()
             
             epochs_behind = current_epoch - user_last_epoch
             has_new = epochs_behind > 0
+            total_claimed = total_claimed_wei / 10**18
             
             logger.debug(
                 f"Vesting check: current={current_epoch}, "
-                f"user_last={user_last_epoch}, behind={epochs_behind}"
+                f"user_last={user_last_epoch}, behind={epochs_behind}, "
+                f"total_claimed={total_claimed:.4f} GNET"
             )
             
-            return has_new, epochs_behind
+            return has_new, epochs_behind, total_claimed
             
         except Exception as e:
             logger.warning(f"Failed to check vesting: {e}")
-            return False, 0
+            return False, 0, 0.0
     
     def check_epoch_changed(self) -> Tuple[bool, int]:
         """

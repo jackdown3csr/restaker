@@ -125,16 +125,20 @@ class ExtenderGUI:
         self.cfg = cfg
         self.private_key = _decrypt_key(cfg.get("private_key_enc", ""))
         self.interval = cfg.get("interval_hours", 24)
+        self.vesting_enabled = cfg.get("vesting_check_enabled", False)
+        self.vesting_interval = cfg.get("vesting_interval_hours", 24)
+        self._last_vesting_notified_epoch = cfg.get("vesting_last_notified_epoch", 0)
         self.scheduler = None
         self.tray = None
         self.last_result: dict | None = None
         self._status_cache: dict | None = None
+        self.vesting_checker = None
 
         # ── Root window ────────────────────────────────────────
         self.root = tk.Tk()
         self.root.title("veGNET Lock Extender")
-        self.root.geometry("520x520")
-        self.root.minsize(480, 460)
+        self.root.geometry("560x640")
+        self.root.minsize(520, 560)
         self.root.resizable(True, True)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -167,7 +171,7 @@ class ExtenderGUI:
         style.configure("Muted.TLabel", font=("Segoe UI", 8), foreground="gray")
 
         # ── Header ─────────────────────────────────────────────
-        header = ttk.Frame(self.root, padding="15 10 15 5")
+        header = ttk.Frame(self.root, padding="15 8 15 4")
         header.pack(fill="x")
         ttk.Label(header, text="veGNET Lock Extender", style="Title.TLabel").pack(side="left")
 
@@ -176,14 +180,14 @@ class ExtenderGUI:
 
         # ── Notebook (tabs) ────────────────────────────────────
         self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill="both", expand=True, padx=10, pady=(5, 10))
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=(5, 6))
 
         self._build_dashboard_tab()
         self._build_settings_tab()
         self._build_log_tab()
 
         # ── Footer ─────────────────────────────────────────────
-        footer = ttk.Frame(self.root, padding="15 0 15 8")
+        footer = ttk.Frame(self.root, padding="15 0 15 4")
         footer.pack(fill="x")
         self.footer_label = ttk.Label(footer, text="", style="Muted.TLabel")
         self.footer_label.pack(side="left")
@@ -197,7 +201,7 @@ class ExtenderGUI:
         import tkinter as tk
         from tkinter import ttk
 
-        tab = ttk.Frame(self.notebook, padding=10)
+        tab = ttk.Frame(self.notebook, padding=8)
         self.notebook.add(tab, text="  Dashboard  ")
 
         # Top row — metric cards
@@ -226,6 +230,32 @@ class ExtenderGUI:
             val_lbl = ttk.Label(row, text="—")
             val_lbl.pack(side="left")
             self._info_rows[label] = val_lbl
+
+        # Vesting section
+        vest_frame = ttk.LabelFrame(tab, text="Vesting Rewards", padding=10)
+        vest_frame.pack(fill="x", pady=(0, 10))
+        self._vesting_rows = {}
+        for label in ["Vesting Status", "Epochs Behind", "Total Claimed", "Last Check", "Last Notified"]:
+            row = ttk.Frame(vest_frame)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=label + ":", width=20, anchor="w").pack(side="left")
+            val_lbl = ttk.Label(row, text="—")
+            val_lbl.pack(side="left")
+            self._vesting_rows[label] = val_lbl
+
+        vest_hint = ttk.Label(
+            vest_frame,
+            text="Tip: Epochs behind = current epoch − your last claimed epoch",
+            style="Muted.TLabel",
+        )
+        vest_hint.pack(anchor="w", pady=(6, 0))
+
+        vest_btn = ttk.Button(
+            vest_frame,
+            text="  Check Vesting Now  ",
+            command=self._on_check_vesting_now,
+        )
+        vest_btn.pack(anchor="w", pady=(6, 0))
 
         # Buttons row
         btn_frame = ttk.Frame(tab)
@@ -269,7 +299,7 @@ class ExtenderGUI:
         import tkinter as tk
         from tkinter import ttk, messagebox
 
-        tab = ttk.Frame(self.notebook, padding=15)
+        tab = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(tab, text="  Settings  ")
 
         ttk.Label(tab, text="Wallet Address:").pack(anchor="w")
@@ -290,14 +320,47 @@ class ExtenderGUI:
         ttk.Label(key_opts, text="  Encrypted with Windows DPAPI — leave empty to keep current",
                   style="Muted.TLabel").pack(side="left")
 
-        interval_frame = ttk.Frame(tab)
-        interval_frame.pack(fill="x", pady=(0, 10))
-        ttk.Label(interval_frame, text="Auto-extend interval:").pack(side="left")
+        auto_frame = ttk.LabelFrame(tab, text="Auto-Extend", padding=10)
+        auto_frame.pack(fill="x", pady=(0, 10))
+        ttk.Label(auto_frame, text="Interval:").pack(side="left")
         self.interval_var = tk.StringVar(value=str(self.cfg.get("interval_hours", 24)))
-        ttk.Combobox(interval_frame, textvariable=self.interval_var,
+        ttk.Combobox(auto_frame, textvariable=self.interval_var,
                      values=["1", "6", "12", "24", "48", "168"],
                      width=5, state="readonly").pack(side="left", padx=(10, 5))
-        ttk.Label(interval_frame, text="hours").pack(side="left")
+        ttk.Label(auto_frame, text="hours").pack(side="left")
+
+        vesting_frame = ttk.LabelFrame(tab, text="Vesting Rewards", padding=10)
+        vesting_frame.pack(fill="x", pady=(0, 10))
+        self.vesting_var = tk.BooleanVar(value=self.cfg.get("vesting_check_enabled", False))
+        tk.Checkbutton(
+            vesting_frame,
+            text="Notify when vesting rewards are available",
+            variable=self.vesting_var,
+            wraplength=420,
+        ).pack(anchor="w")
+        vesting_interval = ttk.Frame(vesting_frame)
+        vesting_interval.pack(fill="x", pady=(6, 0))
+        ttk.Label(vesting_interval, text="Check every:").pack(side="left")
+        self.vesting_interval_var = tk.StringVar(
+            value=str(self.cfg.get("vesting_interval_hours", 24))
+        )
+        ttk.Combobox(
+            vesting_interval,
+            textvariable=self.vesting_interval_var,
+            values=["1", "6", "12", "24", "48", "168"],
+            width=5,
+            state="readonly",
+        ).pack(side="left", padx=(10, 5))
+        ttk.Label(vesting_interval, text="hours").pack(side="left")
+
+        startup_frame = ttk.LabelFrame(tab, text="Windows Startup", padding=10)
+        startup_frame.pack(fill="x", pady=(0, 10))
+        self.autostart_var = tk.BooleanVar(value=self.cfg.get("autostart", False))
+        ttk.Checkbutton(
+            startup_frame,
+            text="Start automatically when I log in",
+            variable=self.autostart_var,
+        ).pack(anchor="w")
 
         # Buttons
         btn_frame = ttk.Frame(tab)
@@ -323,6 +386,7 @@ class ExtenderGUI:
             addr = self.wallet_var.get().strip()
             new_key = self.key_var.get().strip()
             interval = int(self.interval_var.get())
+            vesting_interval = int(self.vesting_interval_var.get())
 
             if not addr:
                 messagebox.showerror("Error", "Wallet address is required.")
@@ -333,12 +397,24 @@ class ExtenderGUI:
 
             self.cfg["wallet_address"] = addr
             self.cfg["interval_hours"] = interval
+            self.cfg["vesting_check_enabled"] = bool(self.vesting_var.get())
+            self.cfg["vesting_interval_hours"] = vesting_interval
+            self.cfg["autostart"] = bool(self.autostart_var.get())
 
             if new_key:
                 self.cfg["private_key_enc"] = _encrypt_key(new_key)
                 self.private_key = new_key
 
             self.interval = interval
+            self.vesting_enabled = bool(self.vesting_var.get())
+            self.vesting_interval = vesting_interval
+
+            # Apply autostart setting
+            if self.autostart_var.get():
+                self._setup_autostart()
+            else:
+                self._remove_autostart()
+
             save_config(self.cfg)
             logger.info("Config saved")
             self.key_var.set("")
@@ -377,6 +453,35 @@ class ExtenderGUI:
         try:
             ext = self._build_extender()
             status = ext.get_status()
+            status["vesting"] = {
+                "enabled": bool(self.vesting_enabled),
+                "has_new": False,
+                "epochs_behind": 0,
+                "total_claimed": 0.0,
+                "last_notified": int(self.cfg.get("vesting_last_notified_epoch", 0) or 0),
+                "last_check": self.cfg.get("vesting_last_check", "—"),
+                "error": "",
+            }
+
+            if self.vesting_enabled and self.cfg.get("wallet_address"):
+                try:
+                    if not self.vesting_checker:
+                        from gui.vesting_checker import VestingChecker
+                        self.vesting_checker = VestingChecker(
+                            rpc_url="https://galactica-mainnet.g.alchemy.com/public",
+                            user_address=self.cfg.get("wallet_address", ""),
+                        )
+                    has_new, epochs_behind, total_claimed = self.vesting_checker.check_new_rewards()
+                    status["vesting"]["last_check"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    status["vesting"].update(
+                        {
+                            "has_new": bool(has_new),
+                            "epochs_behind": int(epochs_behind),
+                            "total_claimed": float(total_claimed),
+                        }
+                    )
+                except Exception as e:
+                    status["vesting"]["error"] = str(e)
             self._status_cache = status
             self.root.after(0, lambda: self._update_ui(status))
         except Exception as e:
@@ -411,6 +516,42 @@ class ExtenderGUI:
             elif r["status"] == "error":
                 self._info_rows["Last Action"].configure(
                     text=f"Error: {r.get('error', '')[:40]}", foreground="red")
+
+        vest = s.get("vesting", {})
+        if not vest.get("enabled"):
+            self._vesting_rows["Vesting Status"].configure(text="Disabled", foreground="gray")
+            self._vesting_rows["Epochs Behind"].configure(text="—", foreground="gray")
+            self._vesting_rows["Total Claimed"].configure(text="—", foreground="gray")
+            self._vesting_rows["Last Check"].configure(text="—", foreground="gray")
+            self._vesting_rows["Last Notified"].configure(text="—", foreground="gray")
+        elif vest.get("error"):
+            self._vesting_rows["Vesting Status"].configure(text="Error", foreground="red")
+            self._vesting_rows["Epochs Behind"].configure(text="—", foreground="red")
+            self._vesting_rows["Total Claimed"].configure(text="—", foreground="red")
+            self._vesting_rows["Last Check"].configure(text="—", foreground="red")
+            self._vesting_rows["Last Notified"].configure(
+                text=str(vest.get("last_notified", 0)), foreground="red"
+            )
+        else:
+            if vest.get("has_new"):
+                self._vesting_rows["Vesting Status"].configure(
+                    text="Available", foreground="#008866"
+                )
+            else:
+                self._vesting_rows["Vesting Status"].configure(text="None", foreground="gray")
+            self._vesting_rows["Epochs Behind"].configure(
+                text=str(vest.get("epochs_behind", 0)), foreground="gray"
+            )
+            tc = vest.get("total_claimed", 0.0)
+            self._vesting_rows["Total Claimed"].configure(
+                text=f"{tc:,.4f} GNET" if tc else "—", foreground="gray"
+            )
+            self._vesting_rows["Last Check"].configure(
+                text=str(vest.get("last_check", "—")), foreground="gray"
+            )
+            self._vesting_rows["Last Notified"].configure(
+                text=str(vest.get("last_notified", 0)), foreground="gray"
+            )
 
         self.status_label.configure(text=f"Connected — chain 613419")
         self.footer_label.configure(text=f"Wallet: {self.cfg.get('wallet_address', '?')}")
@@ -503,8 +644,19 @@ class ExtenderGUI:
             replace_existing=True,
             next_run_time=datetime.now(),
         )
+        if self.vesting_enabled:
+            self.scheduler.add_job(
+                self._scheduled_vesting_check,
+                trigger=IntervalTrigger(hours=self.vesting_interval),
+                id="vesting_job",
+                replace_existing=True,
+                next_run_time=datetime.now(),
+            )
         self.scheduler.start()
-        logger.info(f"Scheduler started — every {self.interval}h")
+        logger.info(
+            f"Scheduler started — extend every {self.interval}h, "
+            f"vesting check every {self.vesting_interval}h"
+        )
 
         def on_show(icon, item):
             self.root.after(0, self.root.deiconify)
@@ -550,6 +702,89 @@ class ExtenderGUI:
             self.root.after(0, self._refresh_stats)
         except Exception as e:
             logger.error(f"Scheduled extend failed: {e}")
+
+    def _scheduled_vesting_check(self):
+        """Check for new vesting rewards and notify if available."""
+        if not self.vesting_enabled:
+            return
+        try:
+            if not self.vesting_checker:
+                from gui.vesting_checker import VestingChecker
+                self.vesting_checker = VestingChecker(
+                    rpc_url="https://galactica-mainnet.g.alchemy.com/public",
+                    user_address=self.cfg.get("wallet_address", ""),
+                )
+
+            has_new, epochs_behind, _total = self.vesting_checker.check_new_rewards()
+            if not has_new:
+                return
+
+            current_epoch = self.vesting_checker.contract.functions.currentEpoch().call()
+            last_notified = int(self.cfg.get("vesting_last_notified_epoch", 0) or 0)
+            if current_epoch <= last_notified:
+                return
+
+            self._tray_notify(
+                "Vesting Rewards Available",
+                f"You are {epochs_behind} epoch(s) behind",
+            )
+            self.cfg["vesting_last_notified_epoch"] = int(current_epoch)
+            self.cfg["vesting_last_check"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            save_config(self.cfg)
+        except Exception as e:
+            logger.warning(f"Vesting check failed: {e}")
+
+    def _on_check_vesting_now(self):
+        threading.Thread(target=self._check_vesting_now_bg, daemon=True).start()
+
+    def _check_vesting_now_bg(self):
+        try:
+            self._scheduled_vesting_check()
+            self.root.after(0, self._refresh_stats)
+        except Exception as e:
+            logger.warning(f"Manual vesting check failed: {e}")
+
+    # ── Autostart helpers ──────────────────────────────────────
+
+    def _setup_autostart(self):
+        """Add application to Windows startup (HKCU\\...\\Run)."""
+        try:
+            import winreg
+            if getattr(sys, "frozen", False):
+                cmd = f'"{sys.executable}"'
+            else:
+                script = str(Path(__file__).resolve())
+                cmd = f'"{sys.executable}" "{script}"'
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                0,
+                winreg.KEY_SET_VALUE,
+            )
+            winreg.SetValueEx(key, "GalacticaExtender", 0, winreg.REG_SZ, cmd)
+            winreg.CloseKey(key)
+            logger.info("Autostart enabled")
+        except Exception as e:
+            logger.warning(f"Failed to set autostart: {e}")
+
+    def _remove_autostart(self):
+        """Remove application from Windows startup."""
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                0,
+                winreg.KEY_SET_VALUE,
+            )
+            try:
+                winreg.DeleteValue(key, "GalacticaExtender")
+            except FileNotFoundError:
+                pass
+            winreg.CloseKey(key)
+            logger.info("Autostart disabled")
+        except Exception as e:
+            logger.warning(f"Failed to remove autostart: {e}")
 
     def _tray_notify(self, title: str, msg: str):
         if self.tray:
@@ -670,6 +905,14 @@ def main():
         cfg["wallet_address"] = ""
     if not cfg.get("interval_hours"):
         cfg["interval_hours"] = 24
+    if "vesting_check_enabled" not in cfg:
+        cfg["vesting_check_enabled"] = False
+    if "vesting_interval_hours" not in cfg:
+        cfg["vesting_interval_hours"] = 24
+    if "vesting_last_notified_epoch" not in cfg:
+        cfg["vesting_last_notified_epoch"] = 0
+    if "vesting_last_check" not in cfg:
+        cfg["vesting_last_check"] = "—"
 
     app = ExtenderGUI(cfg)
 
