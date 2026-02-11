@@ -37,7 +37,7 @@ LOG_DIR = APP_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
 LOGO_PATH = _resource_path("LOGO_PNG.png")
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 GITHUB_REPO = "jackdown3csr/restaker"
 
 # ── Logging ────────────────────────────────────────────────────────
@@ -194,6 +194,13 @@ class ExtenderGUI:
         self._update_label.bind("<Button-1>", self._on_update_click)
         self._update_url: str = ""
 
+        # ── Footer (pack first so it's never clipped) ─────────
+        footer = ttk.Frame(self.root, padding="15 4 15 6")
+        footer.pack(fill="x", side="bottom")
+        self.footer_label = ttk.Label(footer, text="", style="Muted.TLabel")
+        self.footer_label.pack(side="left")
+        ttk.Label(footer, text=f"v{VERSION}", style="Muted.TLabel").pack(side="right")
+
         # ── Notebook (tabs) ────────────────────────────────────
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=(5, 6))
@@ -202,16 +209,10 @@ class ExtenderGUI:
         self._build_settings_tab()
         self._build_log_tab()
 
-        # ── Footer ─────────────────────────────────────────────
-        footer = ttk.Frame(self.root, padding="15 0 15 4")
-        footer.pack(fill="x")
-        self.footer_label = ttk.Label(footer, text="", style="Muted.TLabel")
-        self.footer_label.pack(side="left")
-        ttk.Label(footer, text=f"v{VERSION}", style="Muted.TLabel").pack(side="right")
-
         # ── Initial load ───────────────────────────────────────
         self._refresh_stats()
         threading.Thread(target=self._check_for_update, daemon=True).start()
+        self._tick_countdown()
 
     # ── Dashboard Tab ──────────────────────────────────────────
 
@@ -460,6 +461,27 @@ class ExtenderGUI:
         self._log_handler = _TkLogHandler(self.log_text, self.root)
         self._log_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s"))
         logging.getLogger().addHandler(self._log_handler)
+
+    # ── Countdown ticker ───────────────────────────────────────
+
+    def _tick_countdown(self):
+        """Update the footer with time until next extend, repeats every 30s."""
+        try:
+            if self.scheduler:
+                job = self.scheduler.get_job("extend_job")
+                if job and job.next_run_time:
+                    now = datetime.now(job.next_run_time.tzinfo)
+                    delta = job.next_run_time - now
+                    secs = max(int(delta.total_seconds()), 0)
+                    h, m = divmod(secs // 60, 60)
+                    if h > 0:
+                        txt = f"Next extend in {h}h {m:02d}m"
+                    else:
+                        txt = f"Next extend in {m}m"
+                    self.footer_label.configure(text=txt)
+        except Exception:
+            pass
+        self.root.after(30_000, self._tick_countdown)
 
     # ── Update checker ─────────────────────────────────────────
 
