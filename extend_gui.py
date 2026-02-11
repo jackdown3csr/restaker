@@ -37,6 +37,8 @@ LOG_DIR = APP_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
 LOGO_PATH = _resource_path("LOGO_PNG.png")
+VERSION = "1.0.3"
+GITHUB_REPO = "jackdown3csr/restaker"
 
 # ── Logging ────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -169,6 +171,7 @@ class ExtenderGUI:
         style.configure("Status.TLabel", font=("Segoe UI", 10, "bold"), foreground="#008866")
         style.configure("Error.TLabel", font=("Segoe UI", 10), foreground="red")
         style.configure("Muted.TLabel", font=("Segoe UI", 8), foreground="gray")
+        style.configure("Update.TLabel", font=("Segoe UI", 9), foreground="#0066cc")
 
         # ── Header ─────────────────────────────────────────────
         header = ttk.Frame(self.root, padding="15 8 15 4")
@@ -177,6 +180,19 @@ class ExtenderGUI:
 
         self.status_label = ttk.Label(header, text="", style="Muted.TLabel")
         self.status_label.pack(side="right")
+
+        # ── Update banner (hidden by default) ──────────────────
+        self._update_frame = ttk.Frame(self.root, padding="15 2 15 2")
+        # not packed yet — shown only when a new version is found
+        self._update_label = ttk.Label(
+            self._update_frame,
+            text="",
+            style="Update.TLabel",
+            cursor="hand2",
+        )
+        self._update_label.pack(side="left")
+        self._update_label.bind("<Button-1>", self._on_update_click)
+        self._update_url: str = ""
 
         # ── Notebook (tabs) ────────────────────────────────────
         self.notebook = ttk.Notebook(self.root)
@@ -191,9 +207,11 @@ class ExtenderGUI:
         footer.pack(fill="x")
         self.footer_label = ttk.Label(footer, text="", style="Muted.TLabel")
         self.footer_label.pack(side="left")
+        ttk.Label(footer, text=f"v{VERSION}", style="Muted.TLabel").pack(side="right")
 
         # ── Initial load ───────────────────────────────────────
         self._refresh_stats()
+        threading.Thread(target=self._check_for_update, daemon=True).start()
 
     # ── Dashboard Tab ──────────────────────────────────────────
 
@@ -442,6 +460,46 @@ class ExtenderGUI:
         self._log_handler = _TkLogHandler(self.log_text, self.root)
         self._log_handler.setFormatter(logging.Formatter("%(asctime)s  %(levelname)-8s  %(message)s"))
         logging.getLogger().addHandler(self._log_handler)
+
+    # ── Update checker ─────────────────────────────────────────
+
+    def _check_for_update(self):
+        """Check GitHub for a newer release (runs in background thread)."""
+        try:
+            import urllib.request, json as _json
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.v3+json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = _json.loads(resp.read())
+            remote_tag = data.get("tag_name", "")  # e.g. "v1.0.3"
+            remote_ver = remote_tag.lstrip("v")
+            if self._is_newer(remote_ver, VERSION):
+                html_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest")
+                self.root.after(0, self._show_update_banner, remote_tag, html_url)
+            else:
+                logger.debug(f"Up to date (local={VERSION}, remote={remote_ver})")
+        except Exception as e:
+            logger.debug(f"Update check failed: {e}")
+
+    @staticmethod
+    def _is_newer(remote: str, local: str) -> bool:
+        """Compare semver strings, return True if remote > local."""
+        try:
+            r = tuple(int(x) for x in remote.split("."))
+            l = tuple(int(x) for x in local.split("."))
+            return r > l
+        except Exception:
+            return False
+
+    def _show_update_banner(self, tag: str, url: str):
+        self._update_url = url
+        self._update_label.configure(text=f"⬆ New version {tag} available — click to download")
+        self._update_frame.pack(fill="x", before=self.notebook)
+
+    def _on_update_click(self, _event=None):
+        if self._update_url:
+            import webbrowser
+            webbrowser.open(self._update_url)
 
     # ── Refresh stats ──────────────────────────────────────────
 
@@ -744,31 +802,107 @@ class ExtenderGUI:
         except Exception as e:
             logger.warning(f"Manual vesting check failed: {e}")
 
-    # ── Autostart helpers ──────────────────────────────────────
+    # ── Autostart helpers (Task Scheduler — bypasses SmartScreen) ─
+
+    _TASK_NAME = "GalacticaExtender"
 
     def _setup_autostart(self):
-        """Add application to Windows startup (HKCU\\...\\Run)."""
+        """Create a Task Scheduler task that runs the app at user logon.
+
+        Uses XML import which works without admin privileges (unlike
+        ``schtasks /Create /SC ONLOGON``).
+        """
         try:
-            import winreg
+            import subprocess, tempfile, getpass
+
             if getattr(sys, "frozen", False):
-                cmd = f'"{sys.executable}"'
+                exe_path = str(Path(sys.executable).resolve())
             else:
-                script = str(Path(__file__).resolve())
-                cmd = f'"{sys.executable}" "{script}"'
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\CurrentVersion\Run",
-                0,
-                winreg.KEY_SET_VALUE,
+                exe_path = (
+                    f'{Path(sys.executable).resolve()}" '
+                    f'"{Path(__file__).resolve()}'
+                )
+                # wrap properly for XML
+                exe_path = str(Path(sys.executable).resolve())
+                args_tag = f"<Arguments>\"{Path(__file__).resolve()}\"</Arguments>"
+
+            # Remove old registry-based autostart if present
+            self._remove_registry_autostart()
+
+            # Build XML
+            domain = os.environ.get("USERDOMAIN", "")
+            user = getpass.getuser()
+            user_id = f"{domain}\\{user}" if domain else user
+
+            if getattr(sys, "frozen", False):
+                action_xml = f"<Command>{exe_path}</Command>"
+            else:
+                action_xml = (
+                    f"<Command>{Path(sys.executable).resolve()}</Command>\n"
+                    f"          <Arguments>\"{Path(__file__).resolve()}\"</Arguments>"
+                )
+
+            xml = (
+                '<?xml version="1.0" encoding="UTF-16"?>\n'
+                '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">\n'
+                "  <Triggers>\n"
+                "    <LogonTrigger>\n"
+                "      <Enabled>true</Enabled>\n"
+                f"      <UserId>{user_id}</UserId>\n"
+                "    </LogonTrigger>\n"
+                "  </Triggers>\n"
+                "  <Actions>\n"
+                "    <Exec>\n"
+                f"      {action_xml}\n"
+                "    </Exec>\n"
+                "  </Actions>\n"
+                "  <Settings>\n"
+                "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n"
+                "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n"
+                "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n"
+                "  </Settings>\n"
+                "</Task>\n"
             )
-            winreg.SetValueEx(key, "GalacticaExtender", 0, winreg.REG_SZ, cmd)
-            winreg.CloseKey(key)
-            logger.info("Autostart enabled")
+
+            xml_path = Path(tempfile.gettempdir()) / "ge_task.xml"
+            xml_path.write_text(xml, encoding="utf-16")
+
+            # Delete existing task first (ignore errors)
+            subprocess.run(
+                ["schtasks", "/Delete", "/TN", self._TASK_NAME, "/F"],
+                capture_output=True,
+            )
+            result = subprocess.run(
+                ["schtasks", "/Create", "/TN", self._TASK_NAME,
+                 "/XML", str(xml_path), "/F"],
+                capture_output=True, text=True,
+            )
+            xml_path.unlink(missing_ok=True)
+
+            if result.returncode == 0:
+                logger.info("Autostart enabled (Task Scheduler)")
+            else:
+                logger.warning(f"schtasks create failed: {result.stderr.strip()}")
         except Exception as e:
             logger.warning(f"Failed to set autostart: {e}")
 
     def _remove_autostart(self):
-        """Remove application from Windows startup."""
+        """Remove the Task Scheduler task."""
+        try:
+            import subprocess
+            subprocess.run(
+                ["schtasks", "/Delete", "/TN", self._TASK_NAME, "/F"],
+                capture_output=True,
+            )
+            # Also clean up old registry key if it exists
+            self._remove_registry_autostart()
+            logger.info("Autostart disabled")
+        except Exception as e:
+            logger.warning(f"Failed to remove autostart: {e}")
+
+    @staticmethod
+    def _remove_registry_autostart():
+        """Clean up legacy registry Run key from v1.0.2."""
         try:
             import winreg
             key = winreg.OpenKey(
@@ -782,17 +916,12 @@ class ExtenderGUI:
             except FileNotFoundError:
                 pass
             winreg.CloseKey(key)
-            logger.info("Autostart disabled")
-        except Exception as e:
-            logger.warning(f"Failed to remove autostart: {e}")
+        except Exception:
+            pass
 
     def _tray_notify(self, title: str, msg: str):
-        if self.tray:
-            try:
-                self.tray.notify(msg, title)
-            except Exception:
-                pass
-        # Also show a Windows toast with the app icon
+        # Prefer winotify (supports app icon); fall back to pystray bubble
+        notified = False
         try:
             from winotify import Notification
             ico_path = self._get_ico_path()
@@ -803,8 +932,14 @@ class ExtenderGUI:
                 icon=str(ico_path) if ico_path else "",
             )
             toast.show()
+            notified = True
         except Exception:
-            pass  # winotify not installed — fall back to pystray only
+            pass
+        if not notified and self.tray:
+            try:
+                self.tray.notify(msg, title)
+            except Exception:
+                pass
         logger.info(f"[{title}] {msg}")
 
     @staticmethod
