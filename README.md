@@ -48,9 +48,11 @@ After setup the app minimizes to your **system tray** and extends your lock auto
 | | |
 |---|---|
 | **Dashboard** | Locked GNET, veGNET balance, days remaining, lock end date, one-click Extend |
+| **gUBI tab** | Live rank, SoulScore, monthly reward, pool value, composition — powered by Galactica API |
 | **Vesting checker** | Notifies you when a new vesting epoch is available to claim; shows total GNET claimed |
 | **Auto-extend** | Configurable interval (1 h – 7 days), runs in the background via system tray |
-| **Autostart** | Optional "Start on Windows login" — no need to remember to launch it |
+| **Update checker** | Notifies you when a new version is available on GitHub |
+| **Autostart** | Optional "Start on Windows login" via Task Scheduler |
 | **Security** | Private key encrypted with DPAPI, never stored in plaintext |
 
 > 💡 If you previously used the Restaker GUI, your wallet is imported automatically on first run.
