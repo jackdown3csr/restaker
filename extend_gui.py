@@ -37,7 +37,8 @@ LOG_DIR = APP_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
 LOGO_PATH = _resource_path("LOGO_PNG.png")
-VERSION = "1.0.5"
+VERSION = "1.0.6"
+GUBI_API = "https://admin-panel.galactica.com/api"
 GITHUB_REPO = "jackdown3csr/restaker"
 
 # ── Logging ────────────────────────────────────────────────────────
@@ -206,11 +207,13 @@ class ExtenderGUI:
         self.notebook.pack(fill="both", expand=True, padx=10, pady=(5, 6))
 
         self._build_dashboard_tab()
+        self._build_gubi_tab()
         self._build_settings_tab()
         self._build_log_tab()
 
         # ── Initial load ───────────────────────────────────────
         self._refresh_stats()
+        self._refresh_gubi()
         threading.Thread(target=self._check_for_update, daemon=True).start()
         self._tick_countdown()
 
@@ -438,6 +441,162 @@ class ExtenderGUI:
             logger.info("Config saved")
             self.key_var.set("")
             messagebox.showinfo("Saved", "Settings saved successfully.\nRestart for scheduler changes.")
+
+    # ── gUBI Tab ───────────────────────────────────────────────
+
+    def _build_gubi_tab(self):
+        import tkinter as tk
+        from tkinter import ttk
+
+        tab = ttk.Frame(self.notebook, padding=8)
+        self.notebook.add(tab, text="  gUBI  ")
+
+        # Top cards row
+        cards = ttk.Frame(tab)
+        cards.pack(fill="x", pady=(0, 10))
+        cards.columnconfigure((0, 1, 2), weight=1)
+
+        self.gubi_card_rank = self._make_card(cards, "Rank", "—", "")
+        self.gubi_card_rank.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+
+        self.gubi_card_score = self._make_card(cards, "SoulScore", "—", "points")
+        self.gubi_card_score.grid(row=0, column=1, sticky="nsew", padx=5)
+
+        self.gubi_card_monthly = self._make_card(cards, "Monthly Reward", "—", "gUBI")
+        self.gubi_card_monthly.grid(row=0, column=2, sticky="nsew", padx=(5, 0))
+
+        # Details section
+        detail_frame = ttk.LabelFrame(tab, text="Your gUBI", padding=10)
+        detail_frame.pack(fill="x", pady=(0, 10))
+        self._gubi_rows = {}
+        for label in ["Share", "Pending Reward", "Available to Claim", "Total Earnings", "veGNET Balance"]:
+            row = ttk.Frame(detail_frame)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=label + ":", width=22, anchor="w").pack(side="left")
+            val_lbl = ttk.Label(row, text="—")
+            val_lbl.pack(side="left")
+            self._gubi_rows[label] = val_lbl
+
+        # Pool section
+        pool_frame = ttk.LabelFrame(tab, text="gUBI Pool", padding=10)
+        pool_frame.pack(fill="x", pady=(0, 10))
+        self._gubi_pool_rows = {}
+        for label in ["Pool Value", "gUBI Price", "Composition", "Total Users", "Monthly Emission"]:
+            row = ttk.Frame(pool_frame)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=label + ":", width=22, anchor="w").pack(side="left")
+            val_lbl = ttk.Label(row, text="—")
+            val_lbl.pack(side="left")
+            self._gubi_pool_rows[label] = val_lbl
+
+        # Refresh button
+        btn_frame = ttk.Frame(tab)
+        btn_frame.pack(fill="x", pady=(5, 5))
+        self.gubi_btn_refresh = ttk.Button(
+            btn_frame, text="  Refresh gUBI  ", command=self._refresh_gubi,
+        )
+        self.gubi_btn_refresh.pack(side="left", ipady=3)
+
+        self.gubi_status = ttk.Label(tab, text="", style="Muted.TLabel")
+        self.gubi_status.pack(anchor="w")
+
+    def _refresh_gubi(self):
+        """Fetch gUBI data from API in background thread."""
+        threading.Thread(target=self._fetch_gubi_bg, daemon=True).start()
+
+    def _fetch_gubi_bg(self):
+        """Background fetch of gUBI user + stats + pool data."""
+        import urllib.request
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "GalacticaExtender/" + VERSION,
+        }
+        wallet = self.cfg.get("wallet_address", "")
+        if not wallet:
+            self.root.after(0, lambda: self.gubi_status.configure(text="No wallet configured"))
+            return
+
+        try:
+            # Fetch user data
+            user_url = f"{GUBI_API}/user/{wallet}?chainId=613419"
+            req = urllib.request.Request(user_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                user_data = json.loads(resp.read())
+
+            # Fetch stats
+            stats_url = f"{GUBI_API}/stats?chainId=613419"
+            req = urllib.request.Request(stats_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                stats_data = json.loads(resp.read())
+
+            # Fetch pool
+            pool_url = f"{GUBI_API}/pool?chainId=613419"
+            req = urllib.request.Request(pool_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                pool_data = json.loads(resp.read())
+
+            self.root.after(0, lambda: self._update_gubi_ui(user_data, stats_data, pool_data))
+        except Exception as e:
+            logger.debug(f"gUBI fetch failed: {e}")
+            self.root.after(0, lambda: self.gubi_status.configure(
+                text=f"Failed to load gUBI data: {e}"))
+
+    def _update_gubi_ui(self, user: dict, stats: dict, pool: dict):
+        """Update gUBI tab with fetched data."""
+        total_users = stats.get("totalUsers", "?")
+        rank = user.get("rank", "?")
+        self.gubi_card_rank._val_lbl.configure(text=f"#{rank}")
+        self.gubi_card_rank._unit_lbl.configure(text=f"/ {total_users}")
+
+        self.gubi_card_score._val_lbl.configure(
+            text=f"{user.get('soulScore', 0):,}")
+
+        monthly = user.get("monthlyReward", "0")
+        self.gubi_card_monthly._val_lbl.configure(text=str(monthly))
+
+        share = user.get("share", 0)
+        self._gubi_rows["Share"].configure(text=f"{share * 100:.2f}%")
+
+        pending = user.get("pendingReward", "0")
+        self._gubi_rows["Pending Reward"].configure(text=f"{pending} gUBI")
+
+        available = user.get("availableReward", "0")
+        self._gubi_rows["Available to Claim"].configure(text=f"{available} gUBI")
+
+        earnings = user.get("totalEarnings", "0")
+        self._gubi_rows["Total Earnings"].configure(text=f"{earnings} gUBI")
+
+        # Parse veGNET from JSON string
+        vegnet_raw = user.get("veGNET", "{}")
+        try:
+            vegnet_dict = json.loads(vegnet_raw) if isinstance(vegnet_raw, str) else vegnet_raw
+            vegnet_val = sum(float(v) for v in vegnet_dict.values())
+            self._gubi_rows["veGNET Balance"].configure(text=f"{vegnet_val:,.2f} veGNET")
+        except Exception:
+            self._gubi_rows["veGNET Balance"].configure(text=str(vegnet_raw))
+
+        # Pool info
+        pool_usd = pool.get("totalWorthUSD", 0)
+        self._gubi_pool_rows["Pool Value"].configure(text=f"${pool_usd:.4f} USD")
+
+        gubi_price = pool.get("gubiPrice", "0")
+        self._gubi_pool_rows["gUBI Price"].configure(text=f"{float(gubi_price):.12f} USDC")
+
+        comp = pool.get("composition", [])
+        if comp:
+            parts = []
+            for c in comp:
+                bal = int(c.get("balance", 0)) / 10**18
+                parts.append(f"{bal:,.2f} {c.get('symbol', '?')}")
+            self._gubi_pool_rows["Composition"].configure(text="  |  ".join(parts))
+
+        self._gubi_pool_rows["Total Users"].configure(text=str(total_users))
+
+        emission = stats.get("totalMonthlyEmission", "?")
+        self._gubi_pool_rows["Monthly Emission"].configure(text=f"{emission} gUBI/month")
+
+        self.gubi_status.configure(
+            text=f"Last updated: {datetime.now():%H:%M:%S}")
 
     # ── Log Tab ────────────────────────────────────────────────
 
@@ -731,6 +890,12 @@ class ExtenderGUI:
                 replace_existing=True,
                 next_run_time=datetime.now(),
             )
+        self.scheduler.add_job(
+            self._check_for_update,
+            trigger=IntervalTrigger(hours=6),
+            id="update_check_job",
+            replace_existing=True,
+        )
         self.scheduler.start()
         logger.info(
             f"Scheduler started — extend every {self.interval}h, "
