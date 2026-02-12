@@ -37,7 +37,7 @@ LOG_DIR = APP_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
 LOGO_PATH = _resource_path("LOGO_PNG.png")
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 GITHUB_REPO = "jackdown3csr/restaker"
 
 # ── Logging ────────────────────────────────────────────────────────
@@ -722,7 +722,6 @@ class ExtenderGUI:
             trigger=IntervalTrigger(hours=self.interval),
             id="extend_job",
             replace_existing=True,
-            next_run_time=datetime.now(),
         )
         if self.vesting_enabled:
             self.scheduler.add_job(
