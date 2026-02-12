@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-02-12
+
+### Changed
+- Scheduler intervals switched from **hours to days** (1, 2, 3, 7 d) — sub-day makes no sense with week-rounded contract
+- "Extend to Max" button is now **disabled** when lock is at week-boundary maximum
+- Better messaging: "At week-max — extendable in X d" instead of confusing "Already at maximum"
+- Countdown in footer shows days when interval > 24h ("Next extend in 2d 5h")
+- Config keys migrated: `interval_hours` → `interval_days`, backward compatible
+
 ## [1.0.6] - 2026-02-12
 
 ### Added

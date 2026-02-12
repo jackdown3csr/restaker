@@ -105,6 +105,16 @@ class GalacticaExtender:
 
         # Max possible new unlock time (now + MAXTIME, rounded to week)
         max_new_ts = (int(now + maxtime) // WEEK) * WEEK
+        can_extend = max_new_ts > lock_end_ts
+
+        # When can_extend is False, calculate when the next week boundary
+        # will push max_new_ts past lock_end_ts (contract rounds to weeks).
+        if can_extend:
+            days_until_extendable = 0.0
+        else:
+            next_boundary = lock_end_ts + WEEK
+            secs_until = max(next_boundary - (now + maxtime), 0)
+            days_until_extendable = secs_until / 86400
 
         return {
             "locked_gnet": locked_gnet,
@@ -115,8 +125,9 @@ class GalacticaExtender:
             "maxtime_days": maxtime / 86400,
             "max_new_ts": max_new_ts,
             "max_new_end": datetime.fromtimestamp(max_new_ts, tz=timezone.utc),
-            "can_extend": max_new_ts > lock_end_ts,
+            "can_extend": can_extend,
             "extend_days": max((max_new_ts - lock_end_ts) / 86400, 0),
+            "days_until_extendable": days_until_extendable,
         }
 
     # ── Extend lock ────────────────────────────────────────────────
@@ -130,9 +141,11 @@ class GalacticaExtender:
             return {"status": "no_lock", **status}
 
         if not status["can_extend"]:
+            days_until = status["days_until_extendable"]
+            extra = f" — extendable in ~{days_until:.0f} days" if days_until > 0 else ""
             logger.info(
-                f"Lock already at max — ends {status['lock_end']:%Y-%m-%d} "
-                f"({status['days_remaining']:.0f} days remaining)"
+                f"Lock at week-boundary max — ends {status['lock_end']:%Y-%m-%d} "
+                f"({status['days_remaining']:.0f} days remaining){extra}"
             )
             return {"status": "already_max", **status}
 

@@ -37,7 +37,7 @@ LOG_DIR = APP_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 CONFIG_FILE = APP_DIR / "config.json"
 LOGO_PATH = _resource_path("LOGO_PNG.png")
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 GUBI_API = "https://admin-panel.galactica.com/api"
 GITHUB_REPO = "jackdown3csr/restaker"
 
@@ -127,9 +127,9 @@ class ExtenderGUI:
 
         self.cfg = cfg
         self.private_key = _decrypt_key(cfg.get("private_key_enc", ""))
-        self.interval = cfg.get("interval_hours", 24)
+        self.interval_days = cfg.get("interval_days", cfg.get("interval_hours", 24) // 24 or 1)
         self.vesting_enabled = cfg.get("vesting_check_enabled", False)
-        self.vesting_interval = cfg.get("vesting_interval_hours", 24)
+        self.vesting_interval_days = cfg.get("vesting_interval_days", cfg.get("vesting_interval_hours", 24) // 24 or 1)
         self._last_vesting_notified_epoch = cfg.get("vesting_last_notified_epoch", 0)
         self.scheduler = None
         self.tray = None
@@ -345,11 +345,11 @@ class ExtenderGUI:
         auto_frame = ttk.LabelFrame(tab, text="Auto-Extend", padding=10)
         auto_frame.pack(fill="x", pady=(0, 10))
         ttk.Label(auto_frame, text="Interval:").pack(side="left")
-        self.interval_var = tk.StringVar(value=str(self.cfg.get("interval_hours", 24)))
+        self.interval_var = tk.StringVar(value=str(self.interval_days))
         ttk.Combobox(auto_frame, textvariable=self.interval_var,
-                     values=["1", "6", "12", "24", "48", "168"],
+                     values=["1", "2", "3", "7"],
                      width=5, state="readonly").pack(side="left", padx=(10, 5))
-        ttk.Label(auto_frame, text="hours").pack(side="left")
+        ttk.Label(auto_frame, text="days").pack(side="left")
 
         vesting_frame = ttk.LabelFrame(tab, text="Vesting Rewards", padding=10)
         vesting_frame.pack(fill="x", pady=(0, 10))
@@ -364,16 +364,16 @@ class ExtenderGUI:
         vesting_interval.pack(fill="x", pady=(6, 0))
         ttk.Label(vesting_interval, text="Check every:").pack(side="left")
         self.vesting_interval_var = tk.StringVar(
-            value=str(self.cfg.get("vesting_interval_hours", 24))
+            value=str(self.vesting_interval_days)
         )
         ttk.Combobox(
             vesting_interval,
             textvariable=self.vesting_interval_var,
-            values=["1", "6", "12", "24", "48", "168"],
+            values=["1", "2", "3", "7"],
             width=5,
             state="readonly",
         ).pack(side="left", padx=(10, 5))
-        ttk.Label(vesting_interval, text="hours").pack(side="left")
+        ttk.Label(vesting_interval, text="days").pack(side="left")
 
         startup_frame = ttk.LabelFrame(tab, text="Windows Startup", padding=10)
         startup_frame.pack(fill="x", pady=(0, 10))
@@ -407,8 +407,8 @@ class ExtenderGUI:
         def on_save():
             addr = self.wallet_var.get().strip()
             new_key = self.key_var.get().strip()
-            interval = int(self.interval_var.get())
-            vesting_interval = int(self.vesting_interval_var.get())
+            interval_days = int(self.interval_var.get())
+            vesting_interval_days = int(self.vesting_interval_var.get())
 
             if not addr:
                 messagebox.showerror("Error", "Wallet address is required.")
@@ -418,18 +418,20 @@ class ExtenderGUI:
                 return
 
             self.cfg["wallet_address"] = addr
-            self.cfg["interval_hours"] = interval
+            self.cfg["interval_days"] = interval_days
+            self.cfg.pop("interval_hours", None)
             self.cfg["vesting_check_enabled"] = bool(self.vesting_var.get())
-            self.cfg["vesting_interval_hours"] = vesting_interval
+            self.cfg["vesting_interval_days"] = vesting_interval_days
+            self.cfg.pop("vesting_interval_hours", None)
             self.cfg["autostart"] = bool(self.autostart_var.get())
 
             if new_key:
                 self.cfg["private_key_enc"] = _encrypt_key(new_key)
                 self.private_key = new_key
 
-            self.interval = interval
+            self.interval_days = interval_days
             self.vesting_enabled = bool(self.vesting_var.get())
-            self.vesting_interval = vesting_interval
+            self.vesting_interval_days = vesting_interval_days
 
             # Apply autostart setting
             if self.autostart_var.get():
@@ -632,8 +634,11 @@ class ExtenderGUI:
                     now = datetime.now(job.next_run_time.tzinfo)
                     delta = job.next_run_time - now
                     secs = max(int(delta.total_seconds()), 0)
-                    h, m = divmod(secs // 60, 60)
-                    if h > 0:
+                    d, remainder = divmod(secs, 86400)
+                    h, m = divmod(remainder // 60, 60)
+                    if d > 0:
+                        txt = f"Next extend in {d}d {h}h"
+                    elif h > 0:
                         txt = f"Next extend in {h}h {m:02d}m"
                     else:
                         txt = f"Next extend in {m}m"
@@ -738,9 +743,17 @@ class ExtenderGUI:
         if s["can_extend"]:
             self._info_rows["Extendable By"].configure(
                 text=f"+{s['extend_days']:.0f} days  ✓", foreground="#008866")
+            self.btn_extend.configure(state="normal")
         else:
-            self._info_rows["Extendable By"].configure(
-                text="Already at maximum", foreground="gray")
+            days_until = s.get("days_until_extendable", 0)
+            if days_until > 0:
+                self._info_rows["Extendable By"].configure(
+                    text=f"At week-max — extendable in {days_until:.0f} d",
+                    foreground="gray")
+            else:
+                self._info_rows["Extendable By"].configure(
+                    text="Already at maximum", foreground="gray")
+            self.btn_extend.configure(state="disabled")
 
         decay = s["locked_gnet"] / s["maxtime_days"] if s["maxtime_days"] else 0
         self._info_rows["veGNET Decay/Day"].configure(text=f"−{decay:,.2f} veGNET")
@@ -824,9 +837,13 @@ class ExtenderGUI:
                 text=f"✓ Extended to {r['new_end']:%Y-%m-%d} — gas {r['gas_cost_gnet']:.6f} GNET",
                 style="Status.TLabel")
         elif status == "already_max":
-            self.result_label.configure(
-                text=f"Already at maximum — ends {r['lock_end']:%Y-%m-%d}",
-                style="Muted.TLabel")
+            days_until = r.get("days_until_extendable", 0)
+            if days_until > 0:
+                msg = (f"At week-boundary max — ends {r['lock_end']:%Y-%m-%d} "
+                       f"(extendable in ~{days_until:.0f} d)")
+            else:
+                msg = f"Already at maximum — ends {r['lock_end']:%Y-%m-%d}"
+            self.result_label.configure(text=msg, style="Muted.TLabel")
         elif status == "dry_run":
             self.result_label.configure(text="[DRY RUN] Would extend", style="Muted.TLabel")
         elif status == "gas_high":
@@ -878,14 +895,14 @@ class ExtenderGUI:
         self.scheduler = BackgroundScheduler()
         self.scheduler.add_job(
             self._scheduled_extend,
-            trigger=IntervalTrigger(hours=self.interval),
+            trigger=IntervalTrigger(days=self.interval_days),
             id="extend_job",
             replace_existing=True,
         )
         if self.vesting_enabled:
             self.scheduler.add_job(
                 self._scheduled_vesting_check,
-                trigger=IntervalTrigger(hours=self.vesting_interval),
+                trigger=IntervalTrigger(days=self.vesting_interval_days),
                 id="vesting_job",
                 replace_existing=True,
                 next_run_time=datetime.now(),
@@ -898,8 +915,8 @@ class ExtenderGUI:
         )
         self.scheduler.start()
         logger.info(
-            f"Scheduler started — extend every {self.interval}h, "
-            f"vesting check every {self.vesting_interval}h"
+            f"Scheduler started — extend every {self.interval_days}d, "
+            f"vesting check every {self.vesting_interval_days}d"
         )
 
         def on_show(icon, item):
@@ -918,7 +935,7 @@ class ExtenderGUI:
             Item("Show Window", on_show, default=True),
             Item("Extend Now", on_extend_now),
             pystray.Menu.SEPARATOR,
-            Item(f"Auto: every {self.interval}h", None, enabled=False),
+            Item(f"Auto: every {self.interval_days}d", None, enabled=False),
             pystray.Menu.SEPARATOR,
             Item("Quit", on_quit),
         )
@@ -1224,12 +1241,12 @@ def main():
     # (Settings tab will be used for initial setup too)
     if not cfg.get("wallet_address"):
         cfg["wallet_address"] = ""
-    if not cfg.get("interval_hours"):
-        cfg["interval_hours"] = 24
+    if not cfg.get("interval_days") and not cfg.get("interval_hours"):
+        cfg["interval_days"] = 1
     if "vesting_check_enabled" not in cfg:
         cfg["vesting_check_enabled"] = False
-    if "vesting_interval_hours" not in cfg:
-        cfg["vesting_interval_hours"] = 24
+    if not cfg.get("vesting_interval_days") and not cfg.get("vesting_interval_hours"):
+        cfg["vesting_interval_days"] = 1
     if "vesting_last_notified_epoch" not in cfg:
         cfg["vesting_last_notified_epoch"] = 0
     if "vesting_last_check" not in cfg:
